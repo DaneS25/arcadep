@@ -9,6 +9,12 @@ export const PALETTE = {
   accent: "#ff2a3d",
   /** Street surface before textures arrive. */
   ground: "#16161c",
+  /** Building walls and the alley wall before textures arrive (blockout, task 5). */
+  wall: "#2b2b35",
+  /** Floor bands, roof and parapets. */
+  trim: "#3a3a46",
+  /** Pavement slab. */
+  sidewalk: "#24242c",
 } as const;
 
 export type PaletteToken = keyof typeof PALETTE;

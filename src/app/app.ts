@@ -69,8 +69,8 @@ export function startApp(
   });
 
   const camera = new PerspectiveCamera(50, 1, 0.1, 200);
-  camera.position.set(0, 8, 22);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(16, 8, 26);
+  camera.lookAt(0, 5, 0);
 
   const stage = createStage();
   disposer.add(() => {
