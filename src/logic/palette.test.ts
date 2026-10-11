@@ -7,6 +7,9 @@ describe("paletteCssVars", () => {
       { name: "--color-base", value: PALETTE.base },
       { name: "--color-accent", value: PALETTE.accent },
       { name: "--color-ground", value: PALETTE.ground },
+      { name: "--color-wall", value: PALETTE.wall },
+      { name: "--color-trim", value: PALETTE.trim },
+      { name: "--color-sidewalk", value: PALETTE.sidewalk },
     ]);
   });
 
