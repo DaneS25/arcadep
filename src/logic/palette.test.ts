@@ -5,6 +5,7 @@ describe("paletteCssVars", () => {
   it("turns every token into a --color- custom property", () => {
     expect(paletteCssVars()).toEqual([
       { name: "--color-base", value: PALETTE.base },
+      { name: "--color-accent", value: PALETTE.accent },
       { name: "--color-ground", value: PALETTE.ground },
     ]);
   });

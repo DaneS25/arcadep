@@ -8,6 +8,12 @@ import {
 } from "@/logic/viewport";
 import { createStage } from "@/scene/stage";
 import {
+  createAssetSources,
+  createLoadingManager,
+  loadAssets,
+  type LoadedAssets,
+} from "./assetLoader";
+import {
   createReducedMotion,
   type ReducedMotionSetting,
 } from "./reducedMotion";
@@ -15,14 +21,30 @@ import { createRenderer } from "./renderer";
 
 export type App = {
   readonly reducedMotion: ReducedMotionSetting;
+  /** Settles once every optional asset has loaded or fallen back. Never rejects. */
+  readonly assets: Promise<LoadedAssets>;
   dispose(): void;
 };
 
 export type StartResult =
   { ok: true; app: App } | { ok: false; reason: string };
 
-/** Builds the renderer, camera and stage inside `root` and starts the render loop. */
-export function startApp(root: HTMLElement, win: Window = window): StartResult {
+export type AppOptions = {
+  /** Asset loading progress from 0 to 1. */
+  onLoadProgress: (ratio: number) => void;
+  /** Where warnings go (missing assets). */
+  warn: (message: string) => void;
+};
+
+/**
+ * Builds the renderer, camera and stage inside `root`, starts the render loop and
+ * starts loading the optional assets.
+ */
+export function startApp(
+  root: HTMLElement,
+  options: AppOptions,
+  win: Window = window,
+): StartResult {
   const canvas = win.document.createElement("canvas");
   canvas.className = "scene";
   root.append(canvas);
@@ -55,6 +77,18 @@ export function startApp(root: HTMLElement, win: Window = window): StartResult {
     stage.dispose();
   });
 
+  const manager = createLoadingManager(options.onLoadProgress);
+  const assets = loadAssets(
+    createAssetSources(manager, win.document),
+    options.warn,
+  );
+  // Disposer.add runs the step at once if the app was already disposed.
+  void assets.then((loaded) => {
+    disposer.add(() => {
+      loaded.dispose();
+    });
+  });
+
   let applied: Viewport | undefined;
   const resizeIfNeeded = (): void => {
     const next = computeViewport(
@@ -85,6 +119,7 @@ export function startApp(root: HTMLElement, win: Window = window): StartResult {
     ok: true,
     app: {
       reducedMotion,
+      assets,
       dispose() {
         disposer.dispose();
       },
