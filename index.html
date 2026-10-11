@@ -3,10 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <title>Arcade Portfolio</title>
   </head>
   <body>
     <main id="app"></main>
+    <!-- Same markup as createLoadingScreenElement in src/ui/loadingScreen.ts, so it shows before any script runs. -->
+    <div id="loading-screen" class="loading-screen">
+      <p class="loading-screen__title" aria-hidden="true">LOADING</p>
+      <div
+        class="loading-screen__bar"
+        role="progressbar"
+        aria-label="Loading the arcade"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+      >
+        <div class="loading-screen__fill"></div>
+      </div>
+      <p class="loading-screen__percent" aria-hidden="true">0%</p>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

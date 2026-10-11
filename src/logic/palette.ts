@@ -1,10 +1,12 @@
 /**
  * Colour tokens shared by the scene and the CSS (set as custom properties at start-up).
- * Accents are added with the look pass (task 9).
+ * Secondary accents are added with the look pass (task 9).
  */
 export const PALETTE = {
   /** Near-black base: page background, scene background. */
   base: "#07070b",
+  /** Main red neon accent (loading screen now, neon strips from task 9). */
+  accent: "#ff2a3d",
   /** Street surface before textures arrive. */
   ground: "#16161c",
 } as const;
