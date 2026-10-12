@@ -1,5 +1,6 @@
 import "@/ui/base.css";
 import { startApp } from "@/app/app";
+import { loadContent } from "@/content/index";
 import { fontCssVars } from "@/logic/assetManifest";
 import { paletteCssVars } from "@/logic/palette";
 import { hideWhenSettled, mountLoadingScreen } from "@/ui/loadingScreen";
@@ -17,6 +18,11 @@ for (const { name, value } of [...paletteCssVars(), ...fontCssVars()]) {
 
 const loadingScreen = mountLoadingScreen(document);
 
+// Validated once at start-up; a bad entry is skipped with a warning, never a crash.
+const content = loadContent((message) => {
+  console.warn(message);
+});
+
 const started = startApp(root, {
   onLoadProgress(ratio) {
     loadingScreen.setProgress(ratio);
@@ -24,6 +30,7 @@ const started = startApp(root, {
   warn(message) {
     console.warn(message);
   },
+  content,
 });
 
 if (started.ok) {

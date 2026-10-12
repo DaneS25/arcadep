@@ -116,6 +116,18 @@ export function surfaceMaterialParams<T>(
 /** Neon tubes: colour times this, so they pass the bloom threshold. */
 export const NEON_INTENSITY = 3;
 
+/**
+ * The arcade cabinet (task 10): a painted metal body, and the marquee and screen (one
+ * canvas texture) pushed a little past 1 so their bright text, not the dark glass, blooms.
+ */
+export const CABINET_LOOK = {
+  bodyRoughness: 0.55,
+  bodyMetalness: 0.25,
+  /** Red glow on the body while it's hovered or focused. */
+  highlightEmissive: 0.3,
+  faceIntensity: 1.3,
+} as const;
+
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */
 export const BLOOM = {
   strength: 1.2,

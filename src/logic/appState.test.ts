@@ -223,13 +223,24 @@ describe("highlightedId", () => {
     expect(highlightedId(exploring)).toBeUndefined();
   });
 
-  it("lights the focused or open side's spot", () => {
+  it("lights the focused side's spot", () => {
     expect(highlightedId(inMode({ kind: "focused", side: "back" }))).toBe(
       "spot-back",
     );
-    expect(highlightedId(inMode({ kind: "panel", side: "right" }))).toBe(
-      "spot-right",
-    );
+  });
+
+  it("lights nothing while a panel is open with nothing hovered", () => {
+    expect(
+      highlightedId(inMode({ kind: "panel", side: "right" })),
+    ).toBeUndefined();
+  });
+
+  it("lights the hovered spot while a panel is open", () => {
+    const state: AppState = {
+      mode: { kind: "panel", side: "right" },
+      hovered: "spot-left",
+    };
+    expect(highlightedId(state)).toBe("spot-left");
   });
 
   it("prefers the hovered spot", () => {

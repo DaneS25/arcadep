@@ -6,16 +6,18 @@ import {
   CAMERA,
   clampOrbit,
   nearestSide,
-  orbitPosition,
+  posePosition,
+  type CameraPose,
   type Orbit,
 } from "@/logic/cameraOrbit";
+import type { CameraStop } from "@/logic/cameraStops";
 
 export type CameraRig = {
-  /** Starts a snap (or, under reduced motion, a cut) to `side`'s view. */
-  snapTo(side: Side): void;
-  /** The side the camera currently faces most. */
+  /** Starts a move (or, under reduced motion, a cut) to a side's view or a close-up. */
+  goTo(stop: CameraStop): void;
+  /** The side the camera currently faces most (the close-up's side while close up). */
   nearestSide(): Side;
-  /** Moves any running snap on by `dtMs`; call once a frame before rendering. */
+  /** Moves any running move on by `dtMs`; call once a frame before rendering. */
   update(dtMs: number): void;
   dispose(): void;
 };
@@ -24,17 +26,19 @@ export type CameraRigOptions = {
   camera: PerspectiveCamera;
   /** The element the mouse drags on (the canvas). */
   dom: HTMLElement;
-  /** Read at the start of each snap: true turns the snap into a cut. */
+  /** Read at the start of each move: true turns the move into a cut. */
   reducedMotion: () => boolean;
-  /** Called when a snap lands on a side. */
-  onArrive?: (side: Side) => void;
+  /** Called when a move lands on its stop. */
+  onArrive?: (stop: CameraStop) => void;
   /** Called when the visitor takes the camera with the mouse. */
   onFreeLook?: () => void;
 };
 
 /**
  * Mouse orbit through OrbitControls, clamped by the limits in `logic/cameraOrbit`, plus
- * snaps to a side's view. Which side to snap to is the app state machine's call.
+ * moves to a side's view or a close-up. Which stop to go to is the app state machine's
+ * call. While the camera is in close (or on its way in or out) it is off the building's
+ * orbit, so the mouse orbit is switched off until it lands on a side again.
  */
 export function createCameraRig(options: CameraRigOptions): CameraRig {
   const { camera, dom } = options;
@@ -49,10 +53,10 @@ export function createCameraRig(options: CameraRigOptions): CameraRig {
   controls.minDistance = CAMERA.minDistanceM;
   controls.maxDistance = CAMERA.maxDistanceM;
 
-  const place = (orbit: Orbit): void => {
-    const p = orbitPosition(orbit, target);
+  const place = (pose: CameraPose): void => {
+    const p = posePosition(pose);
     camera.position.set(p.x, p.y, p.z);
-    camera.lookAt(target.x, target.y, target.z);
+    camera.lookAt(pose.target.x, pose.target.y, pose.target.z);
   };
 
   const currentOrbit = (): Orbit =>
@@ -62,7 +66,7 @@ export function createCameraRig(options: CameraRigOptions): CameraRig {
       distanceM: controls.getDistance(),
     });
 
-  place(CAMERA.start);
+  place({ target, orbit: CAMERA.start });
   controls.update();
 
   const navigator = createCameraNavigator();
@@ -71,6 +75,19 @@ export function createCameraRig(options: CameraRigOptions): CameraRig {
   // still click (picking a spot) keeps the focus and any running snap.
   let pressed = false;
   let applyingSnap = false;
+
+  // Off the building's orbit: in close, or moving in or out. `pose` is where it was last put.
+  let detached: { side: Side; pose: CameraPose | undefined } | undefined;
+
+  const reattach = (): void => {
+    detached = undefined;
+    controls.target.set(target.x, target.y, target.z);
+    controls.enabled = true;
+    applyingSnap = true;
+    controls.update();
+    applyingSnap = false;
+  };
+
   const onStart = (): void => {
     pressed = true;
   };
@@ -88,20 +105,34 @@ export function createCameraRig(options: CameraRigOptions): CameraRig {
   controls.addEventListener("change", onChange);
 
   return {
-    snapTo(side) {
-      navigator.goTo(currentOrbit(), side, options.reducedMotion());
+    goTo(stop) {
+      const from: CameraPose = detached?.pose ?? {
+        target,
+        orbit: currentOrbit(),
+      };
+      if (stop.kind === "closeUp") {
+        detached = { side: stop.side, pose: detached?.pose };
+        controls.enabled = false;
+        pressed = false;
+      }
+      navigator.goTo(from, stop, options.reducedMotion());
     },
     nearestSide() {
-      return nearestSide(currentOrbit().azimuthRad);
+      return detached?.side ?? nearestSide(currentOrbit().azimuthRad);
     },
     update(dtMs) {
       const step = navigator.update(dtMs);
       if (step.kind === "idle") return;
-      place(step.orbit);
-      applyingSnap = true;
-      controls.update();
-      applyingSnap = false;
-      if (step.kind === "arrived") options.onArrive?.(step.side);
+      place(step.pose);
+      if (detached !== undefined) {
+        detached.pose = step.pose;
+        if (step.kind === "arrived" && step.stop.kind === "side") reattach();
+      } else {
+        applyingSnap = true;
+        controls.update();
+        applyingSnap = false;
+      }
+      if (step.kind === "arrived") options.onArrive?.(step.stop);
     },
     dispose() {
       controls.removeEventListener("start", onStart);
