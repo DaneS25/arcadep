@@ -5,14 +5,11 @@
 
 import type { Side } from "./buildingLayout";
 import {
-  nearestSide,
   planTween,
   sampleTween,
   sideView,
-  turnSide,
   type CameraTween,
   type Orbit,
-  type TurnDirection,
 } from "./cameraOrbit";
 
 export type NavigatorStep =
@@ -24,10 +21,10 @@ export type CameraNavigator = {
   /** The side the current snap is heading for, if one is running. */
   readonly heading: Side | undefined;
   /**
-   * Starts a snap to the next side round from `current`. While a snap is running, the turn
-   * counts from the side it is heading for, so pressing twice moves two sides.
+   * Starts a snap from `current` to `side`'s view, replacing any running snap. The app
+   * state machine picks the side (task 7), so two quick presses still move two sides.
    */
-  turn(current: Orbit, direction: TurnDirection, reducedMotion: boolean): Side;
+  goTo(current: Orbit, side: Side, reducedMotion: boolean): void;
   /** Moves the snap on by `dtMs`; call once a frame. */
   update(dtMs: number): NavigatorStep;
   /** Drops the running snap, for example when the visitor grabs the camera with the mouse. */
@@ -41,15 +38,12 @@ export function createCameraNavigator(): CameraNavigator {
     get heading() {
       return move?.side;
     },
-    turn(current, direction, reducedMotion) {
-      const from = move?.side ?? nearestSide(current.azimuthRad);
-      const side = turnSide(from, direction);
+    goTo(current, side, reducedMotion) {
       move = {
         tween: planTween(current, sideView(side), reducedMotion),
         side,
         elapsedMs: 0,
       };
-      return side;
     },
     update(dtMs) {
       if (move === undefined) return { kind: "idle" };
