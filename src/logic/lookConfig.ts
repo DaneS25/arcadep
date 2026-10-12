@@ -128,6 +128,18 @@ export const CABINET_LOOK = {
   faceIntensity: 1.3,
 } as const;
 
+/** The neon skill signs on the left side (task 11). */
+export const SIGNS_LOOK = {
+  plateRoughness: 0.6,
+  plateMetalness: 0.2,
+  /** Sign faces: atlas colour times this; the tubes pass the bloom threshold, the plates don't. */
+  faceIntensity: 1.3,
+  /** Brighter faces while the cluster is hovered or focused. */
+  litFaceIntensity: 2.1,
+  /** Red glow on the plates while hovered or focused. */
+  highlightEmissive: 0.25,
+} as const;
+
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */
 export const BLOOM = {
   strength: 1.2,

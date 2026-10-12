@@ -42,3 +42,19 @@ export function crtPageCounter(page: number, total: number): string {
 }
 /** Key hint under the CRT pages (hidden from screen readers; the buttons say the same). */
 export const CRT_KEY_HINT = "\u2190 \u2192 change page";
+
+/** The Skills panel's list of skills (left side). */
+export const SKILLS_LIST_LABEL = "Skills";
+/** A skill's level, e.g. "Level 4 of 5". */
+export function skillLevelText(level: number, max: number): string {
+  return `Level ${String(level)} of ${String(max)}`;
+}
+/** Years of use, e.g. "3 years" or "1 year". */
+export function skillYearsText(years: number): string {
+  return `${String(years)} ${years === 1 ? "year" : "years"}`;
+}
+/** Labels of the skill's facts. */
+export const SKILL_LEVEL_LABEL = "Level";
+export const SKILL_YEARS_LABEL = "Experience";
+/** Key hint under the skill list (hidden from screen readers; the buttons say the same). */
+export const SKILLS_KEY_HINT = "↑ ↓ choose a skill";

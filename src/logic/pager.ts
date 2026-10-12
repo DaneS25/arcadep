@@ -65,3 +65,24 @@ export function isAtLimit(
 ): boolean {
   return stepPage(index, count, command) === clampPage(index, count);
 }
+
+const LIST_KEY_COMMANDS: Readonly<Record<string, PageCommand>> = {
+  ArrowDown: "next",
+  ArrowRight: "next",
+  ArrowUp: "previous",
+  ArrowLeft: "previous",
+  Home: "first",
+  End: "last",
+};
+
+/**
+ * The command for a key press in a list of choices (the Skills panel, task 11): the arrow
+ * keys in either direction, Home and End. Presses with a modifier are left alone.
+ */
+export function listCommandForKey(
+  input: PageKeyInput,
+): PageCommand | undefined {
+  if (input.altKey || input.ctrlKey || input.metaKey || input.shiftKey)
+    return undefined;
+  return LIST_KEY_COMMANDS[input.key];
+}

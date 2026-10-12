@@ -11,6 +11,7 @@ import { createEnvironment } from "@/scene/atmosphere/environment";
 import { createStage } from "@/scene/stage";
 import { SCENE_LABEL } from "@/ui/copy";
 import { renderCrtPanel } from "@/ui/crtPanel";
+import { renderSkillPanel } from "@/ui/skillPanel";
 import { createPanelLayer, placeholderPanel } from "@/ui/panelLayer";
 import {
   createAssetSources,
@@ -84,9 +85,10 @@ export function startApp(
     reducedMotion.dispose();
   });
 
-  const { profile } = options.content;
+  const { profile, skills } = options.content;
   const stage = createStage({
     attract: { name: profile.name, title: profile.title },
+    skills,
   });
   disposer.add(() => {
     stage.dispose();
@@ -119,10 +121,11 @@ export function startApp(
       interaction.send({ kind: "close" });
     },
     fallbackFocus: () => canvas,
-    render: (side, doc) =>
-      side === "front"
-        ? renderCrtPanel(profile.aboutPages, doc)
-        : placeholderPanel(side, doc),
+    render: (side, doc) => {
+      if (side === "front") return renderCrtPanel(profile.aboutPages, doc);
+      if (side === "left") return renderSkillPanel(skills, doc);
+      return placeholderPanel(side, doc);
+    },
   });
   disposer.add(() => {
     panels.dispose();

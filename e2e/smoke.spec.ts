@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { profile } from "../src/content/profile";
+import { skills } from "../src/content/skills";
 
 test("the built site loads without console errors", async ({ page }) => {
   const errors: string[] = [];
@@ -29,7 +30,7 @@ test("the default view renders the look pass within its draw-call budget", async
   await expect(canvas).toHaveAttribute("data-draw-calls", /^\d+$/);
 
   // Scene pass only: merged walls, trim, pavement and street, instanced neon, the cabinet
-  // (body and screen) and three markers.
+  // (body and screen), the skill signs (plates and faces) and two markers.
   const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
   expect(drawCalls).toBeGreaterThan(0);
   expect(drawCalls).toBeLessThanOrEqual(12);
@@ -253,6 +254,60 @@ test.describe("front: arcade cabinet", () => {
     await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toHaveAttribute("data-camera-view", "side");
     await expect(canvas).toHaveAttribute("data-camera-side", "front");
+    await expect(canvas).toBeFocused();
+  });
+});
+
+test.describe("left: neon skill signs", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("opens the Skills panel by keyboard, reaches a skill's details and closes with Escape", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const [first, second] = skills;
+    if (first === undefined || second === undefined)
+      throw new Error("the dummy content needs two skills");
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(canvas).toHaveAttribute("data-app-side", "left");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await page.screenshot({ path: "test-results/left-signs.png" });
+
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog");
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute("data-side", "left");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      first.name,
+    );
+    await expect(panel.getByRole("button", { name: "Close" })).toBeFocused();
+
+    // Tab reaches the first skill; the arrow keys move to the next one.
+    await page.keyboard.press("Tab");
+    await expect(
+      panel.getByRole("button", { name: new RegExp(`^${first.name}`) }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      second.name,
+    );
+    await expect(panel.getByText(second.note)).toBeVisible();
+    await expect(
+      panel.getByRole("button", { name: new RegExp(`^${second.name}`) }),
+    ).toBeFocused();
+    // Arrow keys move through the list; the scene stays on the left.
+    await expect(canvas).toHaveAttribute("data-app-state", "panel");
+    await expect(canvas).toHaveAttribute("data-app-side", "left");
+    await page.screenshot({ path: "test-results/left-skills-panel.png" });
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
     await expect(canvas).toBeFocused();
   });
 });

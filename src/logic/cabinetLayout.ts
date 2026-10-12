@@ -23,7 +23,7 @@ import type { GeometryData } from "./boxGeometry";
 
 export const CABINET_SIDE: Side = "front";
 
-type LocalBox = {
+export type LocalBox = {
   readonly across: number;
   readonly up: number;
   readonly out: number;
@@ -116,14 +116,14 @@ export type CabinetLayout = {
   readonly screenCentre: Vec3;
 };
 
-function spotFor(side: Side): InteractionSpot {
+export function spotFor(side: Side): InteractionSpot {
   const spot = interactionSpots().find((s) => s.side === side);
   if (spot === undefined) throw new Error(`no interaction spot for ${side}`);
   return spot;
 }
 
 /** A local point in world coordinates. */
-function toWorld(
+export function toWorld(
   spot: InteractionSpot,
   across: number,
   up: number,
@@ -140,7 +140,7 @@ function toWorld(
   };
 }
 
-function worldBox(spot: InteractionSpot, part: LocalBox): Box {
+export function worldBox(spot: InteractionSpot, part: LocalBox): Box {
   const t = sideTangent(spot.side);
   const n = sideNormal(spot.side);
   return {

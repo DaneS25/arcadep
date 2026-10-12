@@ -1,7 +1,5 @@
 import {
-  BufferGeometry,
   CanvasTexture,
-  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -10,7 +8,6 @@ import {
 } from "three";
 import { ATTRACT, promptVisible } from "@/logic/attract";
 import { FONTS, fontStack } from "@/logic/assetManifest";
-import type { GeometryData } from "@/logic/boxGeometry";
 import { boxesGeometryData } from "@/logic/boxGeometry";
 import {
   CABINET_TEXTURE,
@@ -20,6 +17,7 @@ import {
 import { CABINET_LOOK } from "@/logic/lookConfig";
 import { PALETTE } from "@/logic/palette";
 import { CABINET_CREDIT, CABINET_MARQUEE, PRESS_START } from "@/ui/copy";
+import { fitFont, glowText, toGeometry } from "./canvasText";
 
 /** What the attract screen shows about the owner (from `src/content/`). */
 export type AttractInfo = {
@@ -36,50 +34,6 @@ export type Cabinet = {
   redraw(): void;
   dispose(): void;
 };
-
-function toGeometry(data: GeometryData): BufferGeometry {
-  const geometry = new BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new Float32BufferAttribute(data.positions, 3),
-  );
-  geometry.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
-  geometry.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
-  geometry.setIndex(data.indices);
-  geometry.computeBoundingSphere();
-  return geometry;
-}
-
-/** Sets a font no larger than `sizePx` that fits `text` in `maxWidth`. */
-function fitFont(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  family: string,
-  sizePx: number,
-  maxWidth: number,
-): void {
-  ctx.font = `${String(sizePx)}px ${family}`;
-  const width = ctx.measureText(text).width;
-  if (width > maxWidth && width > 0) {
-    const fitted = Math.max(8, Math.floor((sizePx * maxWidth) / width));
-    ctx.font = `${String(fitted)}px ${family}`;
-  }
-}
-
-function glowText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  color: string,
-  blur: number,
-): void {
-  ctx.fillStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = blur;
-  ctx.fillText(text, x, y);
-  ctx.shadowBlur = 0;
-}
 
 /** Marquee strip on top, attract screen below, scanlines over the screen. */
 function drawFaces(
