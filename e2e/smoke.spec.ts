@@ -56,6 +56,90 @@ test.describe("camera navigation", () => {
   });
 });
 
+test.describe("interaction", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("Tab picks each side, Enter opens it and Escape closes it", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    await expect(canvas).toHaveAttribute("data-app-state", "exploring");
+
+    for (const side of ["front", "right", "back", "left"]) {
+      await page.keyboard.press("Tab");
+      await expect(canvas).toHaveAttribute("data-app-state", "focused");
+      await expect(canvas).toHaveAttribute("data-app-side", side);
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
+
+      await page.keyboard.press("Enter");
+      await expect(canvas).toHaveAttribute("data-app-state", "panel");
+      await expect(canvas).toHaveAttribute("data-app-side", side);
+
+      await page.keyboard.press("Escape");
+      await expect(canvas).toHaveAttribute("data-app-state", "focused");
+      await expect(canvas).toHaveAttribute("data-app-side", side);
+    }
+    await page.screenshot({ path: "test-results/focused-left.png" });
+
+    await page.keyboard.press("Escape");
+    await expect(canvas).toHaveAttribute("data-app-state", "exploring");
+    await expect(canvas).not.toHaveAttribute("data-app-side", /.*/);
+  });
+
+  test("the arrow keys pick a side too, and Tab lets focus leave after the last side", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
+    await expect(canvas).toHaveAttribute("data-app-side", "left");
+    await page.keyboard.press("Enter");
+    await expect(canvas).toHaveAttribute("data-app-state", "panel");
+    await page.keyboard.press("Escape");
+
+    // Left is last in tab order, so the next Tab hands focus back to the browser.
+    await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-app-state", "exploring");
+  });
+
+  test("hovering a spot marks it and clicking it opens its side", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    await page.keyboard.press("ArrowLeft");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
+
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    // Sweep the pointer over the view until it lands on the left side's neon sign spot.
+    let found: { x: number; y: number } | undefined;
+    for (let row = 1; row < 16 && found === undefined; row += 1) {
+      for (let col = 1; col < 24 && found === undefined; col += 1) {
+        const x = box.x + (box.width * col) / 24;
+        const y = box.y + (box.height * row) / 16;
+        await page.mouse.move(x, y);
+        const hover = await canvas.getAttribute("data-hover");
+        if (hover === "spot-left") found = { x, y };
+      }
+    }
+    if (found === undefined) throw new Error("never hovered the left spot");
+    await page.screenshot({ path: "test-results/hover-left.png" });
+
+    await page.keyboard.press("Escape");
+    await expect(canvas).toHaveAttribute("data-app-state", "exploring");
+    await page.mouse.click(found.x, found.y);
+    await expect(canvas).toHaveAttribute("data-app-state", "panel");
+    await expect(canvas).toHaveAttribute("data-app-side", "left");
+  });
+});
+
 test("the arrow keys tween to a side with motion allowed", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#loading-screen")).toBeHidden();

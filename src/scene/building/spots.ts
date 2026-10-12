@@ -1,4 +1,4 @@
-import { Group, MeshStandardMaterial, type Object3D } from "three";
+import { Group, MeshStandardMaterial, type Mesh, type Object3D } from "three";
 import {
   interactionSpots,
   sideAzimuthRad,
@@ -17,6 +17,8 @@ export type InteractionSpots = {
   object: Group;
   /** One marker per side, in visiting order. */
   markers: readonly SpotMarker[];
+  /** Lights up one marker (hovered or focused), or none. */
+  setHighlighted(id: SpotMarker["id"] | undefined): void;
   dispose(): void;
 };
 
@@ -31,6 +33,13 @@ export function createInteractionSpots(): InteractionSpots {
     emissive: PALETTE.accent,
     emissiveIntensity: 1,
   });
+  // Brighter body as well as glow, so the highlight reads before bloom arrives (task 9).
+  const lit = new MeshStandardMaterial({
+    color: PALETTE.accent,
+    emissive: PALETTE.accent,
+    emissiveIntensity: 2,
+  });
+  const meshes = new Map<SpotMarker["id"], Mesh>();
 
   const group = new Group();
   group.name = "interaction-spots";
@@ -45,16 +54,24 @@ export function createInteractionSpots(): InteractionSpots {
     mesh.rotation.y = sideAzimuthRad(spot.side);
     mesh.userData = { spotId: spot.id, side: spot.side };
     group.add(mesh);
+    meshes.set(spot.id, mesh);
     return { id: spot.id, side: spot.side, object: mesh };
   });
 
   return {
     object: group,
     markers,
+    setHighlighted(id) {
+      for (const [markerId, mesh] of meshes) {
+        mesh.material = markerId === id ? lit : material;
+      }
+    },
     dispose() {
       group.clear();
+      meshes.clear();
       geometry.dispose();
       material.dispose();
+      lit.dispose();
     },
   };
 }

@@ -14,6 +14,8 @@ import {
   type LoadedAssets,
 } from "./assetLoader";
 import { createCameraRig } from "./cameraRig";
+import { createInteraction } from "./interaction";
+import { createPicker } from "./picker";
 import {
   createReducedMotion,
   type ReducedMotionSetting,
@@ -69,11 +71,43 @@ export function startApp(
     reducedMotion.dispose();
   });
 
+  const stage = createStage();
+  disposer.add(() => {
+    stage.dispose();
+  });
+
   const camera = new PerspectiveCamera(50, 1, 0.1, 200);
+  const picker = createPicker();
+  const { spots } = stage.building;
+  for (const marker of spots.markers) picker.register(marker.id, marker.object);
+  picker.addOccluders(stage.building.occluders);
+  disposer.add(() => {
+    picker.dispose();
+  });
+
+  // The interaction and the rig talk both ways; the rig is only reached once both exist.
+  const interaction = createInteraction({
+    canvas,
+    keyTarget: win,
+    camera,
+    picker,
+    rig: {
+      snapTo: (side) => {
+        rig.snapTo(side);
+      },
+      nearestSide: () => rig.nearestSide(),
+    },
+    highlight: (id) => {
+      spots.setHighlighted(id);
+    },
+  });
+  disposer.add(() => {
+    interaction.dispose();
+  });
+
   const rig = createCameraRig({
     camera,
     dom: canvas,
-    keyTarget: win,
     reducedMotion: () => reducedMotion.value,
     onArrive: (side) => {
       // Lets the smoke test (and later the overlays) see which side is in view.
@@ -81,15 +115,11 @@ export function startApp(
     },
     onFreeLook: () => {
       delete canvas.dataset.cameraSide;
+      interaction.send({ kind: "freeLook" });
     },
   });
   disposer.add(() => {
     rig.dispose();
-  });
-
-  const stage = createStage();
-  disposer.add(() => {
-    stage.dispose();
   });
 
   const manager = createLoadingManager(options.onLoadProgress);
