@@ -13,6 +13,7 @@ import {
   loadAssets,
   type LoadedAssets,
 } from "./assetLoader";
+import { createCameraRig } from "./cameraRig";
 import {
   createReducedMotion,
   type ReducedMotionSetting,
@@ -69,8 +70,22 @@ export function startApp(
   });
 
   const camera = new PerspectiveCamera(50, 1, 0.1, 200);
-  camera.position.set(16, 8, 26);
-  camera.lookAt(0, 5, 0);
+  const rig = createCameraRig({
+    camera,
+    dom: canvas,
+    keyTarget: win,
+    reducedMotion: () => reducedMotion.value,
+    onArrive: (side) => {
+      // Lets the smoke test (and later the overlays) see which side is in view.
+      canvas.dataset.cameraSide = side;
+    },
+    onFreeLook: () => {
+      delete canvas.dataset.cameraSide;
+    },
+  });
+  disposer.add(() => {
+    rig.dispose();
+  });
 
   const stage = createStage();
   disposer.add(() => {
@@ -108,6 +123,7 @@ export function startApp(
   renderer.setAnimationLoop((timeMs) => {
     const dtMs = clock.tick(timeMs);
     resizeIfNeeded();
+    rig.update(dtMs);
     stage.update(dtMs);
     renderer.render(stage.scene, camera);
   });
