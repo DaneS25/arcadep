@@ -6,6 +6,11 @@ describe("paletteCssVars", () => {
     expect(paletteCssVars()).toEqual([
       { name: "--color-base", value: PALETTE.base },
       { name: "--color-accent", value: PALETTE.accent },
+      { name: "--color-cyan", value: PALETTE.cyan },
+      { name: "--color-amber", value: PALETTE.amber },
+      { name: "--color-panel", value: PALETTE.panel },
+      { name: "--color-text", value: PALETTE.text },
+      { name: "--color-muted", value: PALETTE.muted },
       { name: "--color-ground", value: PALETTE.ground },
       { name: "--color-wall", value: PALETTE.wall },
       { name: "--color-trim", value: PALETTE.trim },

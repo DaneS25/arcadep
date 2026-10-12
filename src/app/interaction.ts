@@ -30,6 +30,8 @@ export type InteractionOptions = {
   rig: Pick<CameraRig, "snapTo" | "nearestSide">;
   /** Lights up the hovered or focused object. */
   highlight: (id: InteractiveId | undefined) => void;
+  /** Hears every state change (the overlay panel layer follows the mode). */
+  onChange: (state: AppState) => void;
 };
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -45,7 +47,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 /**
  * Wires the keyboard and pointer to the app state machine and applies what it decides:
  * camera snaps, the highlight, and `data-app-*` attributes on the canvas (read by the
- * smoke test now and the overlays in task 8). Scene code never opens UI from here.
+ * smoke test). Overlays follow through `onChange`; scene code never opens UI.
  */
 export function createInteraction(options: InteractionOptions): Interaction {
   const { canvas, keyTarget, camera, picker, rig } = options;
@@ -60,6 +62,7 @@ export function createInteraction(options: InteractionOptions): Interaction {
     else canvas.dataset.hover = state.hovered;
     canvas.style.cursor = state.hovered === undefined ? "" : "pointer";
     options.highlight(highlightedId(state));
+    options.onChange(state);
   };
 
   const send = (event: AppEvent): boolean => {

@@ -7,6 +7,8 @@ import {
   type Viewport,
 } from "@/logic/viewport";
 import { createStage } from "@/scene/stage";
+import { SCENE_LABEL } from "@/ui/copy";
+import { createPanelLayer } from "@/ui/panelLayer";
 import {
   createAssetSources,
   createLoadingManager,
@@ -50,6 +52,11 @@ export function startApp(
 ): StartResult {
   const canvas = win.document.createElement("canvas");
   canvas.className = "scene";
+  // Not in the tab order (keys are heard on the window), but focusable so focus can
+  // return here when a panel closes.
+  canvas.tabIndex = -1;
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", SCENE_LABEL);
   root.append(canvas);
 
   const created = createRenderer(canvas);
@@ -85,6 +92,18 @@ export function startApp(
     picker.dispose();
   });
 
+  // Closing goes back through the state machine, which then syncs the layer.
+  const panels = createPanelLayer({
+    parent: root,
+    onCloseRequest: () => {
+      interaction.send({ kind: "close" });
+    },
+    fallbackFocus: () => canvas,
+  });
+  disposer.add(() => {
+    panels.dispose();
+  });
+
   // The interaction and the rig talk both ways; the rig is only reached once both exist.
   const interaction = createInteraction({
     canvas,
@@ -99,6 +118,9 @@ export function startApp(
     },
     highlight: (id) => {
       spots.setHighlighted(id);
+    },
+    onChange: (state) => {
+      panels.sync(state.mode);
     },
   });
   disposer.add(() => {

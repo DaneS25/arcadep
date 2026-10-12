@@ -1,12 +1,22 @@
 /**
  * Colour tokens shared by the scene and the CSS (set as custom properties at start-up).
- * Secondary accents are added with the look pass (task 9).
+ * Overlay text and surface tokens are checked for WCAG 2.2 AA contrast in the tests.
  */
 export const PALETTE = {
   /** Near-black base: page background, scene background. */
   base: "#07070b",
   /** Main red neon accent (loading screen now, neon strips from task 9). */
   accent: "#ff2a3d",
+  /** Secondary neon accent: focus rings and buttons on overlays. */
+  cyan: "#22e4ff",
+  /** Secondary neon accent: highlights and warnings. */
+  amber: "#ffb000",
+  /** Overlay panel surface. */
+  panel: "#0e0e15",
+  /** Body text on the base and panel surfaces. */
+  text: "#e6e6ee",
+  /** Secondary text (captions, details). */
+  muted: "#b4b4c2",
   /** Street surface before textures arrive. */
   ground: "#16161c",
   /** Building walls and the alley wall before textures arrive (blockout, task 5). */
