@@ -156,9 +156,12 @@ export function transition(state: AppState, event: AppEvent): Transition {
   }
 }
 
-/** The object to light up: the one under the pointer, else the focused or open side's. */
+/**
+ * The object to light up: the one under the pointer, else the focused side's.
+ * An open panel's side stays unlit so its close-up isn't washed in neon.
+ */
 export function highlightedId(state: AppState): InteractiveId | undefined {
   if (state.hovered !== undefined) return state.hovered;
   const { mode } = state;
-  return mode.kind === "exploring" ? undefined : spotId(mode.side);
+  return mode.kind === "focused" ? spotId(mode.side) : undefined;
 }

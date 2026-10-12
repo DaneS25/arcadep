@@ -1,4 +1,5 @@
 import { PerspectiveCamera } from "three";
+import type { SiteContent } from "@/content/types";
 import { createDisposer } from "@/logic/disposer";
 import { createFrameClock } from "@/logic/frameClock";
 import {
@@ -9,7 +10,8 @@ import {
 import { createEnvironment } from "@/scene/atmosphere/environment";
 import { createStage } from "@/scene/stage";
 import { SCENE_LABEL } from "@/ui/copy";
-import { createPanelLayer } from "@/ui/panelLayer";
+import { renderCrtPanel } from "@/ui/crtPanel";
+import { createPanelLayer, placeholderPanel } from "@/ui/panelLayer";
 import {
   createAssetSources,
   createLoadingManager,
@@ -41,6 +43,8 @@ export type AppOptions = {
   onLoadProgress: (ratio: number) => void;
   /** Where warnings go (missing assets). */
   warn: (message: string) => void;
+  /** The validated site content (`loadContent`). */
+  content: SiteContent;
 };
 
 /**
@@ -80,7 +84,10 @@ export function startApp(
     reducedMotion.dispose();
   });
 
-  const stage = createStage();
+  const { profile } = options.content;
+  const stage = createStage({
+    attract: { name: profile.name, title: profile.title },
+  });
   disposer.add(() => {
     stage.dispose();
   });
@@ -112,6 +119,10 @@ export function startApp(
       interaction.send({ kind: "close" });
     },
     fallbackFocus: () => canvas,
+    render: (side, doc) =>
+      side === "front"
+        ? renderCrtPanel(profile.aboutPages, doc)
+        : placeholderPanel(side, doc),
   });
   disposer.add(() => {
     panels.dispose();
@@ -124,8 +135,8 @@ export function startApp(
     camera,
     picker,
     rig: {
-      snapTo: (side) => {
-        rig.snapTo(side);
+      goTo: (stop) => {
+        rig.goTo(stop);
       },
       nearestSide: () => rig.nearestSide(),
     },
@@ -144,12 +155,15 @@ export function startApp(
     camera,
     dom: canvas,
     reducedMotion: () => reducedMotion.value,
-    onArrive: (side) => {
-      // Lets the smoke test (and later the overlays) see which side is in view.
-      canvas.dataset.cameraSide = side;
+    onArrive: (stop) => {
+      // Lets the smoke test (and later the overlays) see which side is in view, and
+      // whether the camera is on the side's view or in close (the cabinet's screen).
+      canvas.dataset.cameraSide = stop.side;
+      canvas.dataset.cameraView = stop.kind;
     },
     onFreeLook: () => {
       delete canvas.dataset.cameraSide;
+      delete canvas.dataset.cameraView;
       interaction.send({ kind: "freeLook" });
     },
   });
@@ -170,6 +184,8 @@ export function startApp(
       for (const map of Object.values(set.maps))
         if (map !== null) map.anisotropy = anisotropy;
     stage.applyTextures(loaded.textures);
+    // Fonts have settled (loaded or fallen back), so canvas text can use them.
+    stage.redrawText();
     disposer.add(() => {
       loaded.dispose();
     });
@@ -208,7 +224,7 @@ export function startApp(
     const dtMs = clock.tick(timeMs);
     resizeIfNeeded();
     rig.update(dtMs);
-    stage.update(dtMs);
+    stage.update(dtMs, reducedMotion.value);
     post.render(dtMs);
     showStats();
   });

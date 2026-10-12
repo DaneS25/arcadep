@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CAMERA } from "./cameraOrbit";
 import {
   BLOOM,
+  CABINET_LOOK,
   ENVIRONMENT_PANELS,
   FOG,
   NEON_INTENSITY,
@@ -101,5 +102,18 @@ describe("neon and bloom", () => {
 
   it("keeps the point-light count small", () => {
     expect(NEON_LIGHTS.length).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("CABINET_LOOK", () => {
+  it("lets the cabinet's bright text bloom but not its dark glass", () => {
+    expect(CABINET_LOOK.faceIntensity).toBeGreaterThan(BLOOM.threshold);
+    // The screen's darkest colour (the base) times the intensity stays far below.
+    expect(CABINET_LOOK.faceIntensity * 0.03).toBeLessThan(BLOOM.threshold);
+  });
+
+  it("keeps the highlight a glow, not a light source", () => {
+    expect(CABINET_LOOK.highlightEmissive).toBeGreaterThan(0);
+    expect(CABINET_LOOK.highlightEmissive).toBeLessThan(1);
   });
 });

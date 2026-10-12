@@ -162,15 +162,83 @@ export function sampleTween(
   const raw = tween.durationMs > 0 ? elapsedMs / tween.durationMs : 1;
   const t = clamp(Number.isFinite(raw) ? raw : 1, 0, 1);
   if (t >= 1) return { orbit: clampOrbit(tween.to), done: true };
+  return {
+    orbit: lerpOrbit(tween.from, tween.to, easeInOutCubic(t)),
+    done: false,
+  };
+}
+
+/** Part way (`e` from 0 to 1) between two orbits, the azimuth taking the shorter way round. */
+export function lerpOrbit(from: Orbit, to: Orbit, e: number): Orbit {
+  return {
+    azimuthRad: wrapAngleRad(
+      from.azimuthRad + shortestTurnRad(from.azimuthRad, to.azimuthRad) * e,
+    ),
+    polarRad: from.polarRad + (to.polarRad - from.polarRad) * e,
+    distanceM: from.distanceM + (to.distanceM - from.distanceM) * e,
+  };
+}
+
+/**
+ * A camera placement: an orbit around a target. The building views orbit `CAMERA.target`;
+ * a close-up (the cabinet's screen) orbits the thing it looks at.
+ */
+export type CameraPose = {
+  readonly target: Vec3;
+  readonly orbit: Orbit;
+};
+
+/** The pose that frames a side, straight on. */
+export function sidePose(side: Side): CameraPose {
+  return { target: CAMERA.target, orbit: sideView(side) };
+}
+
+/** Where the camera sits for a pose. */
+export function posePosition(pose: CameraPose): Vec3 {
+  return orbitPosition(pose.orbit, pose.target);
+}
+
+export type PoseTween = {
+  readonly from: CameraPose;
+  readonly to: CameraPose;
+  /** Zero means a cut. */
+  readonly durationMs: number;
+};
+
+/** A move between two poses; a cut when the visitor asked for reduced motion. */
+export function planPoseTween(
+  from: CameraPose,
+  to: CameraPose,
+  reducedMotion: boolean,
+): PoseTween {
+  return { from, to, durationMs: reducedMotion ? 0 : CAMERA.tweenMs };
+}
+
+export type PoseSample = { readonly pose: CameraPose; readonly done: boolean };
+
+/**
+ * The pose `elapsedMs` into a tween. The target slides in a straight line while the orbit
+ * swings round it, so a move between a side view and a close-up goes round the building,
+ * never through it. Ends exactly on `to`, which may sit inside the orbit limits' minimum
+ * distance (a close-up), so it is not clamped.
+ */
+export function samplePoseTween(
+  tween: PoseTween,
+  elapsedMs: number,
+): PoseSample {
+  const raw = tween.durationMs > 0 ? elapsedMs / tween.durationMs : 1;
+  const t = clamp(Number.isFinite(raw) ? raw : 1, 0, 1);
+  if (t >= 1) return { pose: tween.to, done: true };
   const e = easeInOutCubic(t);
   const { from, to } = tween;
   return {
-    orbit: {
-      azimuthRad: wrapAngleRad(
-        from.azimuthRad + shortestTurnRad(from.azimuthRad, to.azimuthRad) * e,
-      ),
-      polarRad: from.polarRad + (to.polarRad - from.polarRad) * e,
-      distanceM: from.distanceM + (to.distanceM - from.distanceM) * e,
+    pose: {
+      target: {
+        x: from.target.x + (to.target.x - from.target.x) * e,
+        y: from.target.y + (to.target.y - from.target.y) * e,
+        z: from.target.z + (to.target.z - from.target.z) * e,
+      },
+      orbit: lerpOrbit(from.orbit, to.orbit, e),
     },
     done: false,
   };

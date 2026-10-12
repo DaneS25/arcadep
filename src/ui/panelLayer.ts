@@ -13,6 +13,10 @@ import {
 export type PanelView = {
   readonly title: string;
   readonly body: readonly Node[];
+  /** Hears key presses inside the panel (except Tab, which the focus trap owns). */
+  readonly onKeyDown?: (event: KeyboardEvent) => void;
+  /** Called when the view is replaced or the panel closes. */
+  readonly dispose?: () => void;
 };
 
 /** Builds a side's panel content. The side tasks (10 to 13) supply real ones. */
@@ -98,11 +102,19 @@ export function createPanelLayer(options: PanelLayerOptions): PanelLayer {
 
   let openSide: Side | undefined;
   let opener: HTMLElement | undefined;
+  let view: PanelView | undefined;
+
+  const dropView = (): void => {
+    view?.dispose?.();
+    view = undefined;
+  };
 
   const show = (side: Side): void => {
-    const view = render(side, doc);
-    title.textContent = view.title;
-    body.replaceChildren(...view.body);
+    dropView();
+    const next = render(side, doc);
+    view = next;
+    title.textContent = next.title;
+    body.replaceChildren(...next.body);
     dialog.dataset.side = side;
     body.scrollTop = 0;
   };
@@ -129,6 +141,7 @@ export function createPanelLayer(options: PanelLayerOptions): PanelLayer {
     openSide = undefined;
     delete dialog.dataset.side;
     if (dialog.open) dialog.close();
+    dropView();
     restoreFocus();
   };
 
@@ -144,13 +157,17 @@ export function createPanelLayer(options: PanelLayerOptions): PanelLayer {
     if (openSide === undefined) return;
     openSide = undefined;
     delete dialog.dataset.side;
+    dropView();
     restoreFocus();
     options.onCloseRequest();
   };
 
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey)
+    if (event.key !== "Tab") {
+      view?.onKeyDown?.(event);
       return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     const focusables = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
     const active = doc.activeElement;
     const current = focusables.findIndex((element) => element === active);
@@ -202,6 +219,7 @@ export function createPanelLayer(options: PanelLayerOptions): PanelLayer {
       openSide = undefined;
       opener = undefined;
       if (dialog.open) dialog.close();
+      dropView();
       dialog.remove();
     },
   };

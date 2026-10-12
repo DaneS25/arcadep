@@ -13,14 +13,20 @@ import {
   CAMERA,
   clampOrbit,
   easeInOutCubic,
+  lerpOrbit,
   nearestSide,
   orbitPosition,
+  planPoseTween,
   planTween,
+  posePosition,
+  samplePoseTween,
   sampleTween,
+  sidePose,
   shortestTurnRad,
   sideView,
   turnSide,
   wrapAngleRad,
+  type CameraPose,
   type Orbit,
 } from "./cameraOrbit";
 
@@ -228,6 +234,59 @@ describe("tweens", () => {
     expect(sample.done).toBe(true);
     expect(Math.abs(sample.orbit.azimuthRad - left.azimuthRad)).toBeLessThan(
       EPS,
+    );
+  });
+});
+
+describe("pose tweens", () => {
+  const close: CameraPose = {
+    target: { x: -3, y: 1.45, z: 5.75 },
+    orbit: { azimuthRad: 0, polarRad: 1.4, distanceM: 0.9 },
+  };
+
+  it("starts on the first pose and ends exactly on the second, unclamped", () => {
+    const tween = planPoseTween(sidePose("front"), close, false);
+    expect(samplePoseTween(tween, 0)).toEqual({
+      pose: sidePose("front"),
+      done: false,
+    });
+    expect(samplePoseTween(tween, CAMERA.tweenMs)).toEqual({
+      pose: close,
+      done: true,
+    });
+  });
+
+  it("cuts under reduced motion", () => {
+    const tween = planPoseTween(sidePose("front"), close, true);
+    expect(tween.durationMs).toBe(0);
+    expect(samplePoseTween(tween, 0)).toEqual({ pose: close, done: true });
+  });
+
+  it("slides the target half way at the middle", () => {
+    const mid = samplePoseTween(
+      planPoseTween(sidePose("front"), close, false),
+      CAMERA.tweenMs / 2,
+    );
+    expect(mid.pose.target.x).toBeCloseTo(
+      (CAMERA.target.x + close.target.x) / 2,
+    );
+    expect(mid.pose.orbit.distanceM).toBeCloseTo(
+      (CAMERA.sideDistanceM + close.orbit.distanceM) / 2,
+    );
+  });
+
+  it("puts a side pose where the side's orbit puts the camera", () => {
+    expect(posePosition(sidePose("left"))).toEqual(
+      orbitPosition(sideView("left")),
+    );
+  });
+
+  it("matches the orbit tween for orbit-only moves", () => {
+    const from = sideView("front");
+    const to = sideView("left");
+    const a = sampleTween(planTween(from, to, false), 300).orbit;
+    expect(lerpOrbit(from, to, easeInOutCubic(300 / CAMERA.tweenMs))).toEqual(
+      a,
     );
   });
 });

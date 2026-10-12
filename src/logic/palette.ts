@@ -25,6 +25,8 @@ export const PALETTE = {
   trim: "#3a3a46",
   /** Pavement slab. */
   sidewalk: "#24242c",
+  /** Arcade cabinet body (front side). */
+  cabinet: "#1c1c26",
 } as const;
 
 export type PaletteToken = keyof typeof PALETTE;

@@ -1,0 +1,173 @@
+/*
+ * CRT panel (front side, about pages). Text colours are palette tokens checked for WCAG AA
+ * on the base surface; the scanlines are faint enough not to change that.
+ */
+
+.panel[data-side="front"]::backdrop {
+  /* Lighter than the other panels, so the cabinet's glowing screen shows round the edges. */
+  background: rgb(7 7 11 / 45%);
+}
+
+.crt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-family: var(--font-mono, monospace);
+}
+
+.crt__screen {
+  position: relative;
+  min-height: 12rem;
+  padding: var(--space-3);
+  border: 2px solid rgb(255 176 0 / 35%);
+  border-radius: 1.25rem / 1rem;
+  background: radial-gradient(
+    ellipse at center,
+    rgb(255 176 0 / 6%),
+    var(--color-base, #07070b) 75%
+  );
+  box-shadow:
+    inset 0 0 2.5rem rgb(0 0 0 / 80%),
+    0 0 1.5rem rgb(255 176 0 / 12%);
+  overflow: hidden;
+}
+
+/* Static scanlines over the glass. */
+.crt__screen::after {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 3%) 0 1px,
+    transparent 1px 3px
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.crt__page {
+  position: relative;
+}
+
+.crt__counter {
+  margin: 0 0 var(--space-1);
+  color: var(--color-muted, #b4b4c2);
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+}
+
+.crt__heading {
+  margin: 0 0 var(--space-2);
+  color: var(--color-amber, #ffb000);
+  font-size: clamp(1.25rem, 2.6vw, 1.6rem);
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgb(255 176 0 / 55%);
+}
+
+.crt__text {
+  margin: 0;
+  color: var(--color-text, #e6e6ee);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.crt__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.crt__pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crt__step,
+.crt__page-button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-cyan, #22e4ff);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-cyan, #22e4ff);
+  font-family: inherit;
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.crt__step:hover,
+.crt__page-button:hover,
+.crt__page-button[aria-current="page"] {
+  background: var(--color-cyan, #22e4ff);
+  color: var(--color-panel, #0e0e15);
+}
+
+.crt__step[aria-disabled="true"] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-muted, #b4b4c2);
+  cursor: default;
+}
+
+.crt__hint {
+  margin: 0;
+  color: var(--color-muted, #b4b4c2);
+  font-size: 0.8125rem;
+}
+
+/*
+ * Motion only when the visitor hasn't asked for less: the tube warms up on open, each new
+ * page fades in, and a soft band rolls slowly down the glass. Nothing blinks.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .panel[data-side="front"][open] .crt__screen {
+    animation: crt-on 260ms ease-out;
+  }
+
+  .crt__page {
+    animation: crt-page 160ms ease-out;
+  }
+
+  .crt__screen::before {
+    position: absolute;
+    inset: -20% 0 auto;
+    height: 20%;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(255 255 255 / 3%),
+      transparent
+    );
+    animation: crt-roll 7s linear infinite;
+    content: "";
+    pointer-events: none;
+  }
+}
+
+@keyframes crt-on {
+  from {
+    transform: scaleY(0.04);
+    filter: brightness(2);
+  }
+}
+
+@keyframes crt-page {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes crt-roll {
+  to {
+    transform: translateY(600%);
+  }
+}

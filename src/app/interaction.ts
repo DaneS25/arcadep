@@ -6,6 +6,7 @@ import {
   type AppEvent,
   type AppState,
 } from "@/logic/appState";
+import { cameraCue } from "@/logic/cameraStops";
 import type { InteractiveId } from "@/logic/interactiveIds";
 import { eventForCommand, navCommandForKey } from "@/logic/navigationKeys";
 import { isClick, toNdc, type ScreenPoint } from "@/logic/pointer";
@@ -26,8 +27,8 @@ export type InteractionOptions = {
   keyTarget: Window;
   camera: Camera;
   picker: Picker;
-  /** Where camera snaps go (the camera rig). */
-  rig: Pick<CameraRig, "snapTo" | "nearestSide">;
+  /** Where camera moves go (the camera rig). */
+  rig: Pick<CameraRig, "goTo" | "nearestSide">;
   /** Lights up the hovered or focused object. */
   highlight: (id: InteractiveId | undefined) => void;
   /** Hears every state change (the overlay panel layer follows the mode). */
@@ -46,7 +47,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 /**
  * Wires the keyboard and pointer to the app state machine and applies what it decides:
- * camera snaps, the highlight, and `data-app-*` attributes on the canvas (read by the
+ * camera moves (a side's view, or the cabinet's screen while its panel is open), the highlight, and `data-app-*` attributes on the canvas (read by the
  * smoke test). Overlays follow through `onChange`; scene code never opens UI.
  */
 export function createInteraction(options: InteractionOptions): Interaction {
@@ -68,8 +69,9 @@ export function createInteraction(options: InteractionOptions): Interaction {
   const send = (event: AppEvent): boolean => {
     const next = transition(state, event);
     const changed = next.state !== state;
+    const cue = cameraCue(state.mode, next.state.mode, next.snapTo);
     state = next.state;
-    if (next.snapTo !== undefined) rig.snapTo(next.snapTo);
+    if (cue !== undefined) rig.goTo(cue);
     if (changed) mirror();
     return next.handled;
   };

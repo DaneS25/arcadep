@@ -9,7 +9,11 @@ import {
   sidewalkBox,
 } from "@/logic/buildingLayout";
 import { createSurface } from "../surface";
-import { createInteractionSpots, type InteractionSpots } from "./spots";
+import {
+  createInteractionSpots,
+  type InteractionSpots,
+  type SpotsContent,
+} from "./spots";
 
 export type Building = {
   object: Group;
@@ -26,9 +30,9 @@ export type Building = {
 /**
  * The building on its street corner: three floors and the alley wall (one merged wall
  * surface), floor bands, roof and parapets (one merged trim surface), the pavement and
- * each side's interaction marker. Three draw calls plus the markers.
+ * each side's interactive prop. Three draw calls plus the props.
  */
-export function createBuilding(): Building {
+export function createBuilding(content: SpotsContent): Building {
   const walls = createSurface(
     "wall",
     [...floorBoxes(), alleyWallBox()],
@@ -42,7 +46,7 @@ export function createBuilding(): Building {
   group.name = "building";
   for (const surface of surfaces) group.add(surface.object);
 
-  const spots = createInteractionSpots();
+  const spots = createInteractionSpots(content);
   group.add(spots.object);
 
   return {
