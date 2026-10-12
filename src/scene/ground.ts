@@ -1,31 +1,39 @@
-import { Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
-import { PALETTE } from "@/logic/palette";
+import type { Mesh, Texture } from "three";
+import type { TextureSet } from "@/logic/assetFallback";
+import type { TextureSlot } from "@/logic/assetManifest";
+import { createSurface } from "./surface";
 
 /** Side length of the street plane in metres. */
 export const GROUND_SIZE_M = 80;
+const THICKNESS_M = 0.1;
 
 export type Ground = {
   object: Mesh;
+  applyTextures(
+    textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>,
+  ): void;
   dispose(): void;
 };
 
-/** A flat, rough street plane at y = 0. Textures replace the plain colour in the look pass. */
+/** The wet street: a thin slab whose top is at y = 0, with world-sized texture tiles. */
 export function createGround(): Ground {
-  const geometry = new PlaneGeometry(GROUND_SIZE_M, GROUND_SIZE_M);
-  const material = new MeshStandardMaterial({
-    color: PALETTE.ground,
-    roughness: 0.9,
-    metalness: 0,
-  });
-  const mesh = new Mesh(geometry, material);
-  mesh.name = "ground";
-  mesh.rotation.x = -Math.PI / 2;
-
+  const surface = createSurface(
+    "street",
+    [
+      {
+        centre: { x: 0, y: -THICKNESS_M / 2, z: 0 },
+        size: { x: GROUND_SIZE_M, y: THICKNESS_M, z: GROUND_SIZE_M },
+      },
+    ],
+    "ground",
+  );
   return {
-    object: mesh,
+    object: surface.object,
+    applyTextures(textures) {
+      surface.applyTextures(textures);
+    },
     dispose() {
-      geometry.dispose();
-      material.dispose();
+      surface.dispose();
     },
   };
 }

@@ -8,7 +8,8 @@ export function createRenderer(canvas: HTMLCanvasElement): RendererResult {
   try {
     const renderer = new WebGLRenderer({
       canvas,
-      antialias: true,
+      // Everything renders through the composer's multisampled target (postProcessing.ts).
+      antialias: false,
       powerPreference: "high-performance",
     });
     return { ok: true, renderer };

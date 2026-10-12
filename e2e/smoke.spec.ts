@@ -18,6 +18,22 @@ test("the built site loads without console errors", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("the default view renders the look pass within its draw-call budget", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto("/");
+  await expect(page.locator("#loading-screen")).toBeHidden();
+  const canvas = page.locator("canvas.scene");
+  await expect(canvas).toHaveAttribute("data-draw-calls", /^\d+$/);
+
+  // Scene pass only: merged walls, trim, pavement and street, instanced neon, four markers.
+  const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+  expect(drawCalls).toBeGreaterThan(0);
+  expect(drawCalls).toBeLessThanOrEqual(12);
+  await page.screenshot({ path: "test-results/look-default.png" });
+});
+
 test.describe("camera navigation", () => {
   test.use({ reducedMotion: "reduce" });
 
@@ -129,15 +145,27 @@ test.describe("interaction", () => {
 
     const box = await canvas.boundingBox();
     if (box === null) throw new Error("canvas has no box");
-    // Sweep the pointer over the view until it lands on the left side's neon sign spot.
+    // Sweep the pointer over the view, from the centre outwards (the spot is near the
+    // middle of the side view), until it lands on the left side's neon sign spot. Starting
+    // in the middle keeps the sweep short on the slow software renderer.
+    const points: { x: number; y: number }[] = [];
+    for (let row = 1; row < 16; row += 1)
+      for (let col = 1; col < 24; col += 1)
+        points.push({
+          x: box.x + (box.width * col) / 24,
+          y: box.y + (box.height * row) / 16,
+        });
+    const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const distance = (p: { x: number; y: number }): number =>
+      Math.hypot(p.x - centre.x, p.y - centre.y);
+    points.sort((a, b) => distance(a) - distance(b));
     let found: { x: number; y: number } | undefined;
-    for (let row = 1; row < 16 && found === undefined; row += 1) {
-      for (let col = 1; col < 24 && found === undefined; col += 1) {
-        const x = box.x + (box.width * col) / 24;
-        const y = box.y + (box.height * row) / 16;
-        await page.mouse.move(x, y);
-        const hover = await canvas.getAttribute("data-hover");
-        if (hover === "spot-left") found = { x, y };
+    for (const point of points) {
+      await page.mouse.move(point.x, point.y);
+      const hover = await canvas.getAttribute("data-hover");
+      if (hover === "spot-left") {
+        found = point;
+        break;
       }
     }
     if (found === undefined) throw new Error("never hovered the left spot");
