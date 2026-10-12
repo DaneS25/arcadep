@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { clampPage, isAtLimit, pageCommandForKey, stepPage } from "./pager";
+import {
+  clampPage,
+  isAtLimit,
+  listCommandForKey,
+  pageCommandForKey,
+  stepPage,
+} from "./pager";
 
 const key = (
   k: string,
@@ -68,5 +74,24 @@ describe("clampPage and isAtLimit", () => {
     expect(isAtLimit(0, 3, "next")).toBe(false);
     expect(isAtLimit(2, 3, "next")).toBe(true);
     expect(isAtLimit(1, 1, "next")).toBe(true);
+  });
+});
+
+describe("listCommandForKey", () => {
+  it("maps the arrows both ways, Home and End", () => {
+    expect(listCommandForKey(key("ArrowDown"))).toBe("next");
+    expect(listCommandForKey(key("ArrowRight"))).toBe("next");
+    expect(listCommandForKey(key("ArrowUp"))).toBe("previous");
+    expect(listCommandForKey(key("ArrowLeft"))).toBe("previous");
+    expect(listCommandForKey(key("Home"))).toBe("first");
+    expect(listCommandForKey(key("End"))).toBe("last");
+  });
+
+  it("leaves other keys and modified presses alone", () => {
+    expect(listCommandForKey(key("Enter"))).toBeUndefined();
+    expect(listCommandForKey(key("PageDown"))).toBeUndefined();
+    expect(
+      listCommandForKey(key("ArrowDown", { shiftKey: true })),
+    ).toBeUndefined();
   });
 });

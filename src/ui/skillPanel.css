@@ -1,0 +1,163 @@
+/*
+ * Skills panel (left side, neon signs). Text colours are palette tokens checked for WCAG AA
+ * on the panel surface; the neon glow is decoration round them.
+ */
+
+.skills {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) 1fr;
+  gap: var(--space-3);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Narrow windows: the list above the details. */
+@media (width <= 40rem) {
+  .skills {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skills__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skills__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skills__item {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-cyan, #22e4ff);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-cyan, #22e4ff);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skills__item-group {
+  color: var(--color-muted, #b4b4c2);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.skills__item:hover,
+.skills__item[aria-current="true"] {
+  background: var(--color-cyan, #22e4ff);
+  color: var(--color-panel, #0e0e15);
+}
+
+.skills__item:hover .skills__item-group,
+.skills__item[aria-current="true"] .skills__item-group {
+  color: var(--color-panel, #0e0e15);
+}
+
+.skills__hint {
+  margin: 0;
+  color: var(--color-muted, #b4b4c2);
+  font-size: 0.8125rem;
+}
+
+.skills__detail {
+  min-height: 12rem;
+  padding: var(--space-3);
+  border: 2px solid rgb(255 42 61 / 45%);
+  border-radius: 0.75rem;
+  background: var(--color-base, #07070b);
+  box-shadow:
+    inset 0 0 2rem rgb(255 42 61 / 8%),
+    0 0 1.5rem rgb(255 42 61 / 15%);
+}
+
+.skills__name {
+  margin: 0;
+  color: var(--color-text, #e6e6ee);
+  font-family: var(--font-neon, sans-serif);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 4px var(--color-accent, #ff2a3d),
+    0 0 16px var(--color-accent, #ff2a3d);
+}
+
+.skills__group {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--color-amber, #ffb000);
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.skills__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+.skills__facts dt {
+  color: var(--color-muted, #b4b4c2);
+}
+
+.skills__facts dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text, #e6e6ee);
+}
+
+.skills__pips {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.skills__pip {
+  width: 0.6rem;
+  height: 0.6rem;
+  border: 1px solid var(--color-muted, #b4b4c2);
+  border-radius: 50%;
+}
+
+.skills__pip--on {
+  border-color: var(--color-accent, #ff2a3d);
+  background: var(--color-accent, #ff2a3d);
+  box-shadow: 0 0 6px var(--color-accent, #ff2a3d);
+}
+
+.skills__note {
+  margin: 0;
+  color: var(--color-text, #e6e6ee);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+/* A new skill's details fade in, only when the visitor hasn't asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .skills__card {
+    animation: skills-card 160ms ease-out;
+  }
+}
+
+@keyframes skills-card {
+  from {
+    opacity: 0;
+  }
+}

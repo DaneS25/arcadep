@@ -49,7 +49,7 @@ export function createStage(content: SpotsContent): Stage {
       scene.environment = texture;
     },
     update(dtMs, reducedMotion) {
-      // The cabinet's attract screen; neon flicker is task 11, fog drift task 15.
+      // The cabinet's attract screen and the signs' flicker; fog drift is task 15.
       building.spots.update(dtMs, reducedMotion);
     },
     redrawText() {

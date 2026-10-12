@@ -27,6 +27,8 @@ export const PALETTE = {
   sidewalk: "#24242c",
   /** Arcade cabinet body (front side). */
   cabinet: "#1c1c26",
+  /** Backing plates of the neon skill signs (left side). */
+  signPlate: "#121219",
 } as const;
 
 export type PaletteToken = keyof typeof PALETTE;

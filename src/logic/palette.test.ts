@@ -16,6 +16,7 @@ describe("paletteCssVars", () => {
       { name: "--color-trim", value: PALETTE.trim },
       { name: "--color-sidewalk", value: PALETTE.sidewalk },
       { name: "--color-cabinet", value: PALETTE.cabinet },
+      { name: "--color-signPlate", value: PALETTE.signPlate },
     ]);
   });
 
