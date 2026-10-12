@@ -76,10 +76,21 @@ test.describe("interaction", () => {
       await page.keyboard.press("Enter");
       await expect(canvas).toHaveAttribute("data-app-state", "panel");
       await expect(canvas).toHaveAttribute("data-app-side", side);
+      const panel = page.getByRole("dialog");
+      await expect(panel).toBeVisible();
+      await expect(panel).toHaveAttribute("data-side", side);
+      await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Close" })).toBeFocused();
+      // The focus trap keeps Tab inside the open panel.
+      await page.keyboard.press("Tab");
+      await expect(panel.getByRole("button", { name: "Close" })).toBeFocused();
+      await page.screenshot({ path: `test-results/panel-${side}.png` });
 
       await page.keyboard.press("Escape");
       await expect(canvas).toHaveAttribute("data-app-state", "focused");
       await expect(canvas).toHaveAttribute("data-app-side", side);
+      await expect(panel).toBeHidden();
+      await expect(canvas).toBeFocused();
     }
     await page.screenshot({ path: "test-results/focused-left.png" });
 
@@ -137,6 +148,13 @@ test.describe("interaction", () => {
     await page.mouse.click(found.x, found.y);
     await expect(canvas).toHaveAttribute("data-app-state", "panel");
     await expect(canvas).toHaveAttribute("data-app-side", "left");
+    const panel = page.getByRole("dialog");
+    await expect(panel).toBeVisible();
+
+    await panel.getByRole("button", { name: "Close" }).click();
+    await expect(panel).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
+    await expect(canvas).toBeFocused();
   });
 });
 
