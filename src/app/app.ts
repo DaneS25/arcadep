@@ -6,6 +6,7 @@ import {
   viewportChanged,
   type Viewport,
 } from "@/logic/viewport";
+import { createEnvironment } from "@/scene/atmosphere/environment";
 import { createStage } from "@/scene/stage";
 import { SCENE_LABEL } from "@/ui/copy";
 import { createPanelLayer } from "@/ui/panelLayer";
@@ -18,6 +19,7 @@ import {
 import { createCameraRig } from "./cameraRig";
 import { createInteraction } from "./interaction";
 import { createPicker } from "./picker";
+import { createPostProcessing } from "./postProcessing";
 import {
   createReducedMotion,
   type ReducedMotionSetting,
@@ -83,7 +85,18 @@ export function startApp(
     stage.dispose();
   });
 
+  const environment = createEnvironment(renderer);
+  stage.setEnvironment(environment.texture);
+  disposer.add(() => {
+    stage.setEnvironment(null);
+    environment.dispose();
+  });
+
   const camera = new PerspectiveCamera(50, 1, 0.1, 200);
+  const post = createPostProcessing(renderer, stage.scene, camera);
+  disposer.add(() => {
+    post.dispose();
+  });
   const picker = createPicker();
   const { spots } = stage.building;
   for (const marker of spots.markers) picker.register(marker.id, marker.object);
@@ -151,6 +164,12 @@ export function startApp(
   );
   // Disposer.add runs the step at once if the app was already disposed.
   void assets.then((loaded) => {
+    // Sharper textures on the street, seen at a low angle.
+    const anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    for (const set of Object.values(loaded.textures))
+      for (const map of Object.values(set.maps))
+        if (map !== null) map.anisotropy = anisotropy;
+    stage.applyTextures(loaded.textures);
     disposer.add(() => {
       loaded.dispose();
     });
@@ -167,8 +186,21 @@ export function startApp(
     applied = next;
     renderer.setPixelRatio(next.pixelRatio);
     renderer.setSize(next.width, next.height, false);
+    post.setSize(next.width, next.height, next.pixelRatio);
     camera.aspect = next.aspect;
     camera.updateProjectionMatrix();
+  };
+
+  // Draw calls and triangles on the canvas, for the smoke test and performance checks.
+  const showStats = (): void => {
+    const { sceneCalls, sceneTriangles, frameCalls } = post.stats();
+    const values = {
+      drawCalls: String(sceneCalls),
+      triangles: String(sceneTriangles),
+      frameCalls: String(frameCalls),
+    };
+    for (const [key, value] of Object.entries(values))
+      if (canvas.dataset[key] !== value) canvas.dataset[key] = value;
   };
 
   const clock = createFrameClock();
@@ -177,7 +209,8 @@ export function startApp(
     resizeIfNeeded();
     rig.update(dtMs);
     stage.update(dtMs);
-    renderer.render(stage.scene, camera);
+    post.render(dtMs);
+    showStats();
   });
   disposer.add(() => {
     renderer.setAnimationLoop(null);

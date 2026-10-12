@@ -1,4 +1,6 @@
-import { Group, MeshStandardMaterial, type Object3D } from "three";
+import { Group, type Object3D, type Texture } from "three";
+import type { TextureSet } from "@/logic/assetFallback";
+import type { TextureSlot } from "@/logic/assetManifest";
 import {
   alleyWallBox,
   bandBoxes,
@@ -6,64 +8,39 @@ import {
   roofBoxes,
   sidewalkBox,
 } from "@/logic/buildingLayout";
-import { PALETTE } from "@/logic/palette";
-import { boxMesh, createUnitBox } from "./boxMesh";
+import { createSurface } from "../surface";
 import { createInteractionSpots, type InteractionSpots } from "./spots";
 
 export type Building = {
   object: Group;
   /** Each side's interaction marker, for picking in task 7. */
   spots: InteractionSpots;
-  /** Solid parts that hide a spot behind them from picking (walls, roof, alley wall). */
+  /** Solid parts that hide a spot behind them from picking (walls, trim and roof, alley wall). */
   occluders: readonly Object3D[];
+  applyTextures(
+    textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>,
+  ): void;
   dispose(): void;
 };
 
 /**
- * Blockout of the building on its street corner: three floors with trim bands, the roof
- * and parapets, the pavement, the wall across the back alley and each side's interaction
- * marker. Plain colours; the look pass (task 9) adds textures and neon.
+ * The building on its street corner: three floors and the alley wall (one merged wall
+ * surface), floor bands, roof and parapets (one merged trim surface), the pavement and
+ * each side's interaction marker. Three draw calls plus the markers.
  */
 export function createBuilding(): Building {
-  const geometry = createUnitBox();
-  const wall = new MeshStandardMaterial({
-    color: PALETTE.wall,
-    roughness: 0.95,
-  });
-  const trim = new MeshStandardMaterial({
-    color: PALETTE.trim,
-    roughness: 0.8,
-  });
-  const sidewalk = new MeshStandardMaterial({
-    color: PALETTE.sidewalk,
-    roughness: 0.9,
-  });
+  const walls = createSurface(
+    "wall",
+    [...floorBoxes(), alleyWallBox()],
+    "walls",
+  );
+  const trim = createSurface("trim", [...bandBoxes(), ...roofBoxes()], "trim");
+  const sidewalk = createSurface("sidewalk", [sidewalkBox()], "sidewalk");
+  const surfaces = [walls, trim, sidewalk];
 
   const group = new Group();
   group.name = "building";
-  const occluders: Object3D[] = [];
-  floorBoxes().forEach((box, i) => {
-    const floor = boxMesh(geometry, wall, box, `floor-${String(i)}`);
-    occluders.push(floor);
-    group.add(floor);
-  });
-  bandBoxes().forEach((box, i) => {
-    group.add(boxMesh(geometry, trim, box, `band-${String(i)}`));
-  });
-  roofBoxes().forEach((box, i) => {
-    const part = boxMesh(
-      geometry,
-      trim,
-      box,
-      i === 0 ? "roof" : `parapet-${String(i)}`,
-    );
-    occluders.push(part);
-    group.add(part);
-  });
-  group.add(boxMesh(geometry, sidewalk, sidewalkBox(), "sidewalk"));
-  const alleyWall = boxMesh(geometry, wall, alleyWallBox(), "alley-wall");
-  occluders.push(alleyWall);
-  group.add(alleyWall);
+  for (const surface of surfaces) group.add(surface.object);
 
   const spots = createInteractionSpots();
   group.add(spots.object);
@@ -71,14 +48,14 @@ export function createBuilding(): Building {
   return {
     object: group,
     spots,
-    occluders,
+    occluders: [walls.object, trim.object],
+    applyTextures(textures) {
+      for (const surface of surfaces) surface.applyTextures(textures);
+    },
     dispose() {
       group.clear();
       spots.dispose();
-      geometry.dispose();
-      wall.dispose();
-      trim.dispose();
-      sidewalk.dispose();
+      for (const surface of surfaces) surface.dispose();
     },
   };
 }

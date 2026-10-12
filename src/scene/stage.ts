@@ -1,46 +1,59 @@
-import { Color, DirectionalLight, HemisphereLight, Scene } from "three";
+import { Color, FogExp2, Scene, type Texture } from "three";
+import type { TextureSet } from "@/logic/assetFallback";
+import type { TextureSlot } from "@/logic/assetManifest";
+import { ENVIRONMENT, FOG } from "@/logic/lookConfig";
 import { PALETTE } from "@/logic/palette";
+import { createLights } from "./atmosphere/lights";
+import { createNeonTubes } from "./atmosphere/neon";
 import { createBuilding, type Building } from "./building/building";
 import { createGround } from "./ground";
 
 export type Stage = {
   scene: Scene;
   building: Building;
+  /** Puts the loaded ambientCG maps on the street and building (plain colours stay for missing ones). */
+  applyTextures(
+    textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>,
+  ): void;
+  /** Sets the baked neon environment that smooth surfaces reflect. */
+  setEnvironment(texture: Texture | null): void;
   update(dtMs: number): void;
   dispose(): void;
 };
 
-/** The dark street corner: background colour, dim fill and moon lights, the ground plane and the building. */
+/** The night street corner: fog, lights, the wet street, the building and its neon. */
 export function createStage(): Stage {
   const scene = new Scene();
   scene.background = new Color(PALETTE.base);
+  scene.fog = new FogExp2(FOG.color, FOG.density);
+  scene.environmentIntensity = ENVIRONMENT.intensity;
 
-  const fill = new HemisphereLight("#3a3a55", PALETTE.base, 0.6);
-  scene.add(fill);
-
-  // Dim cold moonlight from above the front-left, so the blockout's faces read apart.
-  const moon = new DirectionalLight("#8890c0", 0.8);
-  moon.position.set(-10, 20, 14);
-  scene.add(moon);
-
+  const lights = createLights();
   const ground = createGround();
-  scene.add(ground.object);
-
   const building = createBuilding();
-  scene.add(building.object);
+  const neon = createNeonTubes();
+  scene.add(lights.object, ground.object, building.object, neon.object);
 
   return {
     scene,
     building,
+    applyTextures(textures) {
+      ground.applyTextures(textures);
+      building.applyTextures(textures);
+    },
+    setEnvironment(texture) {
+      scene.environment = texture;
+    },
     update() {
-      // Nothing animates yet; ambient motion hooks in here from the look pass on.
+      // Nothing animates yet: neon flicker is task 11, fog drift task 15.
     },
     dispose() {
-      scene.remove(building.object, ground.object, moon, fill);
-      building.dispose();
+      scene.clear();
+      scene.environment = null;
+      lights.dispose();
       ground.dispose();
-      moon.dispose();
-      fill.dispose();
+      building.dispose();
+      neon.dispose();
     },
   };
 }
