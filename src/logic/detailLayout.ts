@@ -138,7 +138,8 @@ export const DETAIL_SIZES = {
   /** Puddles are a few millimetres thick, so they never z-fight with the street. */
   puddleM: 0.008,
   rooftopFace: { widthM: 7.2, heightM: 7.2 * (224 / 1024) },
-  shopFace: { widthM: 3, heightM: 3 * (128 / 512) },
+  /** The hanging shop signs' faces (task 21; were 3 m wide, flat on the wall). */
+  hangingFace: { widthM: 3.6, heightM: 3.6 * (128 / 512) },
   plateMarginM: 0.1,
   plateDepthM: 0.12,
   /** Gap between a face and its plate. */
@@ -380,6 +381,7 @@ function wallSign(
   alongM: number,
   bottomY: number,
   face: { widthM: number; heightM: number },
+  gapM = 0.02,
 ): { plate: DetailBox; face: SignFace } {
   const m = D.plateMarginM;
   const plate = wallBox(
@@ -391,9 +393,9 @@ function wallSign(
       up: face.heightM + 2 * m,
       out: D.plateDepthM,
     },
-    0.02,
+    gapM,
   );
-  const out = 0.02 + D.plateDepthM + D.faceGapM;
+  const out = gapM + D.plateDepthM + D.faceGapM;
   const at = (sa: number, su: number): Vec3 =>
     pointOnSide(
       side,
@@ -412,6 +414,126 @@ function wallSign(
       },
     },
   };
+}
+
+/**
+ * The two shop signs (task 21): COFFEE on the front and ARCADE on the right, each hung on
+ * the floor above the shop, partly over the lower half of two of that floor's windows. A
+ * sign stands off the wall on two brackets, far enough out to clear the window frames and
+ * sills behind it, and hangs from them on two rods.
+ */
+export type HangingSignId = "cafe" | "arcade";
+
+export type HangingSign = {
+  readonly side: Side;
+  readonly alongM: number;
+  /** Bottom of the plate. */
+  readonly bottomY: number;
+  /** The brackets stand on the wall between the two windows the sign covers. */
+  readonly bracketAlongM: readonly number[];
+};
+
+export const HANGING_SIGNS: Readonly<Record<HangingSignId, HangingSign>> = {
+  cafe: {
+    side: "front",
+    alongM: 1.25,
+    bottomY: 5.1,
+    bracketAlongM: [0.85, 1.65],
+  },
+  arcade: {
+    side: "right",
+    alongM: 1.8,
+    bottomY: 5.1,
+    bracketAlongM: [1.55, 2.05],
+  },
+};
+
+export const HANGING_SIGN_PARTS = {
+  /** Gap between the wall and the plate's back, past the sills' 0.12 m. */
+  gapM: 0.3,
+  /** Brackets' top over the plate's top. */
+  bracketRiseM: 0.5,
+  bracketM: 0.06,
+  rodM: 0.025,
+} as const;
+
+const HP = HANGING_SIGN_PARTS;
+
+function plateTopY(sign: HangingSign): number {
+  return sign.bottomY + D.hangingFace.heightM + 2 * D.plateMarginM;
+}
+
+/** A hanging sign's outline on its wall, brackets included (along and up, in metres). */
+export function hangingSignRect(id: HangingSignId): {
+  minAlong: number;
+  maxAlong: number;
+  minY: number;
+  maxY: number;
+} {
+  const sign = HANGING_SIGNS[id];
+  const half = D.hangingFace.widthM / 2 + D.plateMarginM;
+  return {
+    minAlong: sign.alongM - half,
+    maxAlong: sign.alongM + half,
+    minY: sign.bottomY,
+    maxY: plateTopY(sign) + HP.bracketRiseM,
+  };
+}
+
+function hangingSign(id: HangingSignId): {
+  boxes: DetailBox[];
+  face: SignFace;
+} {
+  const H = { ...HANGING_SIGNS[id], ...HP };
+  const face = D.hangingFace;
+  const sign = wallSign(id, H.side, H.alongM, H.bottomY, face, H.gapM);
+  const plateTop = plateTopY(H);
+  const bracketTopY = plateTop + H.bracketRiseM;
+  // Out to just past the plate's middle, where the rods hang.
+  const reach = H.gapM + D.plateDepthM / 2 + H.rodM;
+  const boxes: DetailBox[] = [sign.plate];
+  for (const alongM of H.bracketAlongM) {
+    boxes.push(
+      // Arm out from the wall.
+      {
+        kind: "metal",
+        box: wallBox(
+          H.side,
+          alongM,
+          bracketTopY - H.bracketM,
+          { across: H.bracketM, up: H.bracketM, out: reach + H.rodM },
+          0,
+        ),
+      },
+      // Wall plate the arm is bolted to.
+      {
+        kind: "metal",
+        box: wallBox(
+          H.side,
+          alongM,
+          bracketTopY - 0.35,
+          { across: 0.14, up: 0.35, out: 0.03 },
+          0,
+        ),
+      },
+      // Rod down to the plate's top, centred over its depth.
+      {
+        kind: "metal",
+        box: wallBox(
+          H.side,
+          alongM,
+          plateTop,
+          {
+            across: H.rodM,
+            up: bracketTopY - H.bracketM - plateTop,
+            out: H.rodM,
+          },
+          H.gapM + D.plateDepthM / 2 - H.rodM / 2,
+        ),
+      },
+    );
+  }
+  return { boxes, face: sign.face };
 }
 
 /**
@@ -500,8 +622,8 @@ export function detailLayout(): DetailLayout {
   // Cables over the alley end on utility poles standing in the low wall across it.
   const poleTop = POLE.heightM - 0.3;
   const poleFace = alley + STREET.alleyWallThicknessM / 2 - POLE.sizeM / 2;
-  const cafe = wallSign("cafe", "front", 2.6, 3.1, D.shopFace);
-  const arcade = wallSign("arcade", "right", -2.2, 6.1, D.shopFace);
+  const cafe = hangingSign("cafe");
+  const arcade = hangingSign("arcade");
   const roof = rooftopSign();
 
   const boxes: DetailBox[] = [
@@ -552,8 +674,8 @@ export function detailLayout(): DetailLayout {
     puddle(2, -7.2, 1.8, 0.9),
     puddle(-4.2, -6.2, 1, 0.7),
     // Signs.
-    cafe.plate,
-    arcade.plate,
+    ...cafe.boxes,
+    ...arcade.boxes,
     ...roof.boxes,
   ];
 

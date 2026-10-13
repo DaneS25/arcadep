@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   BUILDING,
+  CABINET_SCALE,
   SIDES,
   STREET,
   interactionSpots,
+  openingRect,
+  wallOpenings,
   type Box,
   type Vec3,
 } from "./buildingLayout";
@@ -67,6 +70,26 @@ describe("cabinetLayout", () => {
     expect(b.max.z).toBeCloseTo(spot.position.z + spot.size.z / 2);
   });
 
+  it("is bigger than a real cabinet (task 21), so it reads from the street", () => {
+    const b = bounds(layout.parts);
+    expect(CABINET_SCALE).toBeGreaterThan(1);
+    expect(b.max.y - b.min.y).toBeCloseTo(1.8 * CABINET_SCALE);
+    expect(b.max.x - b.min.x).toBeCloseTo(0.8 * CABINET_SCALE);
+  });
+
+  it("fits between the shop windows either side, without covering any opening", () => {
+    const b = bounds(layout.parts);
+    const front = wallOpenings().filter((o) => o.side === "front");
+    for (const o of front) {
+      const r = openingRect(o);
+      const clear = b.max.x < r.minAlong - 0.2 || b.min.x > r.maxAlong + 0.2;
+      const above = r.minY > b.max.y;
+      expect(clear || above, `front ${o.kind} at ${String(o.alongM)}`).toBe(
+        true,
+      );
+    }
+  });
+
   it("stands clear of the front wall", () => {
     const b = bounds(layout.parts);
     expect(b.min.z).toBeGreaterThan(BUILDING.depthM / 2);
@@ -115,11 +138,12 @@ describe("screenViewPose", () => {
     expect(camera.y).toBeGreaterThan(layout.screenCentre.y);
   });
 
-  it("stands outside the cabinet, at about eye height", () => {
+  it("stands outside the cabinet, a little above the screen's centre", () => {
     for (const part of layout.parts)
       expect(inside(part, camera, 0.1)).toBe(false);
     expect(camera.y).toBeGreaterThan(1.3);
-    expect(camera.y).toBeLessThan(2);
+    expect(camera.y - layout.screenCentre.y).toBeGreaterThan(0);
+    expect(camera.y - layout.screenCentre.y).toBeLessThan(0.2 * CABINET_SCALE);
   });
 
   it("frames the whole screen in a 50° view", () => {

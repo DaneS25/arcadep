@@ -9,6 +9,7 @@
  */
 
 import {
+  CABINET_SCALE,
   interactionSpots,
   sideAzimuthRad,
   sideNormal,
@@ -31,6 +32,18 @@ export type LocalBox = {
   readonly size: Vec3;
 };
 
+/** A real cabinet's size, scaled up by `CABINET_SCALE` (task 21) to fill the bigger spot. */
+const S = CABINET_SCALE;
+
+function scaled(box: LocalBox): LocalBox {
+  return {
+    across: box.across * S,
+    up: box.up * S,
+    out: box.out * S,
+    size: { x: box.size.x * S, y: box.size.y * S, z: box.size.z * S },
+  };
+}
+
 /** The cabinet's solid parts, centre and size in local coordinates. */
 const PARTS: readonly LocalBox[] = [
   // Lower body with the coin door.
@@ -41,7 +54,7 @@ const PARTS: readonly LocalBox[] = [
   { across: 0, up: 1.3, out: 0.225, size: { x: 0.8, y: 0.5, z: 0.45 } },
   // Marquee box on top, leaning out over the screen.
   { across: 0, up: 1.675, out: 0.3, size: { x: 0.8, y: 0.25, z: 0.6 } },
-];
+].map(scaled);
 
 /**
  * The shared canvas texture is split in two: the marquee strip across the top quarter and
@@ -71,28 +84,31 @@ const FACE_GAP_M = 0.004;
 /** Screen: 4:3 like the texture region (512 x 384 px), set in the housing's front face. */
 const SCREEN: LocalQuad = {
   across: 0,
-  up: 1.3,
-  out: 0.45 + FACE_GAP_M,
-  width: 0.6,
-  height: 0.45,
+  up: 1.3 * S,
+  out: 0.45 * S + FACE_GAP_M,
+  width: 0.6 * S,
+  height: 0.45 * S,
   ...CABINET_TEXTURE.screen,
 };
 
 /** Marquee: 4:1 like its texture strip (512 x 128 px), on the marquee box's front. */
 const MARQUEE: LocalQuad = {
   across: 0,
-  up: 1.675,
-  out: 0.6 + FACE_GAP_M,
-  width: 0.76,
-  height: 0.19,
+  up: 1.675 * S,
+  out: 0.6 * S + FACE_GAP_M,
+  width: 0.76 * S,
+  height: 0.19 * S,
   ...CABINET_TEXTURE.marquee,
 };
 
 /** How the camera frames the screen: slightly above it, looking a little down. */
 export const SCREEN_VIEW = {
   polarRad: (80 * Math.PI) / 180,
-  /** Close enough that the screen fills a good part of a 50° view. */
-  distanceM: 0.9,
+  /**
+   * Close enough that the screen fills a good part of a 50° view: backed off with the
+   * bigger cabinet (task 21) so the screen fills the same share as before.
+   */
+  distanceM: 0.9 * S,
 } as const;
 
 export type GlowQuad = {

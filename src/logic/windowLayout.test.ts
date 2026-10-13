@@ -16,14 +16,19 @@ import {
   type WallRect,
 } from "./buildingLayout";
 import {
+  HANGING_SIGNS,
+  HANGING_SIGN_PARTS,
   VERTICES_PER_BOX,
+  type HangingSignId,
   detailGeometryData,
   detailLayout,
   glassVertexStarts,
+  hangingSignRect,
   withSignPlates,
   signPlateVertices,
   type DetailShades,
 } from "./detailLayout";
+import { posePosition, sidePose } from "./cameraOrbit";
 import { graffitiLayout } from "./graffitiLayout";
 import { maxFlashesPerSecond } from "./neonFlicker";
 import { neonStrips } from "./neonLayout";
@@ -88,6 +93,26 @@ const overlaps = (a: WallRect, b: WallRect): boolean =>
   a.minY < b.maxY - EPS &&
   b.minY < a.maxY - EPS;
 
+const HANGING_IDS = Object.keys(HANGING_SIGNS) as HangingSignId[];
+
+/** A hanging sign's plate: stood off the wall at its gap, inside its outline. */
+function isHangingSignPlate(
+  r: WallRect & { nearOut: number },
+  ids: readonly HangingSignId[] = HANGING_IDS,
+): boolean {
+  return ids.some((id) => {
+    const sign = hangingSignRect(id);
+    return (
+      r.side === HANGING_SIGNS[id].side &&
+      Math.abs(r.nearOut - HANGING_SIGN_PARTS.gapM) < 1e-6 &&
+      r.minAlong >= sign.minAlong - EPS &&
+      r.maxAlong <= sign.maxAlong + EPS &&
+      r.minY >= sign.minY - EPS &&
+      r.maxY <= sign.maxY + EPS
+    );
+  });
+}
+
 /** Everything already mounted on a side's wall that a window or door must keep clear of. */
 function wallProps(side: Side): WallRect[] {
   const boxes: Box[] = [
@@ -114,7 +139,10 @@ function wallProps(side: Side): WallRect[] {
   const rects: WallRect[] = boxes
     .map((box) => onWall(box, side))
     // Against this wall: in front of it, and not out across the street or the alley.
-    .filter((r) => r.farOut > EPS && r.nearOut < 0.6);
+    .filter((r) => r.farOut > EPS && r.nearOut < 0.6)
+    // The front's hanging sign is meant to cover part of two windows (task 21); its own
+    // test checks it stands clear of them. Its brackets on the wall are still checked.
+    .filter((r) => !isHangingSignPlate(r));
   if (side === "right")
     rects.push({
       side,
@@ -215,6 +243,87 @@ describe("wallOpenings", () => {
             `${side} ${o.kind} at ${String(o.alongM)} vs ${JSON.stringify(prop)}`,
           ).toBe(false);
       }
+    }
+  });
+
+  it.each(HANGING_IDS)(
+    "hangs the %s sign on the floor above the shop, partly over two windows, clear of their frames and sills",
+    (id) => {
+      const { side, bracketAlongM } = HANGING_SIGNS[id];
+      const sign = hangingSignRect(id);
+      const middle = floorLevels()[1];
+      if (middle === undefined) throw new Error("no middle floor");
+      expect(sign.minY).toBeGreaterThanOrEqual(5);
+      expect(sign.minY).toBeLessThanOrEqual(5.5);
+      expect(sign.maxY).toBeLessThan(middle.topY);
+      const plates = detailLayout()
+        .boxes.map((part) => onWall(part.box, side))
+        .filter((r) => isHangingSignPlate(r, [id]));
+      expect(plates).toHaveLength(1);
+      const plate = plates[0];
+      if (plate === undefined) throw new Error(`no ${id} plate`);
+      const covered = openings.filter(
+        (o) => o.side === side && overlaps(openingRect(o), plate),
+      );
+      expect(covered.length).toBeGreaterThanOrEqual(2);
+      for (const o of covered) {
+        const r = openingRect(o);
+        expect(o.kind).toBe("window");
+        expect(o.floor).toBe(1);
+        // Only partly: the top of each window still shows over the sign.
+        expect(plate.maxY).toBeLessThan(r.minY + (r.maxY - r.minY) / 2);
+        expect(plate.minY).toBeLessThan(r.minY);
+      }
+      // Out past the frames and sills, so nothing z-fights or pokes through.
+      expect(plate.nearOut).toBeGreaterThan(0.12 + 0.1);
+      // Its brackets and rods stand on the wall between the windows, not over the glass.
+      const hardware = detailLayout()
+        .boxes.filter((part) => part.kind === "metal")
+        .map((part) => onWall(part.box, side))
+        .filter(
+          (r) =>
+            // On this wall, not on the far side of the building.
+            r.nearOut > -EPS &&
+            r.farOut < 1 &&
+            r.minAlong >= sign.minAlong &&
+            r.maxAlong <= sign.maxAlong &&
+            r.minY >= sign.minY &&
+            r.maxY <= sign.maxY + EPS,
+        );
+      expect(hardware).toHaveLength(3 * bracketAlongM.length);
+      for (const r of hardware)
+        for (const o of openings.filter((x) => x.side === side))
+          expect(overlaps(r, openingRect(o))).toBe(false);
+    },
+  );
+
+  it("keeps the ARCADE sign out of the right side's view of the door terminal", () => {
+    const terminal = interactionSpots().find((s) => s.side === "right");
+    if (terminal === undefined) throw new Error("no terminal spot");
+    const plate = detailLayout().boxes.find((part) =>
+      isHangingSignPlate(onWall(part.box, "right"), ["arcade"]),
+    );
+    if (plate === undefined) throw new Error("no arcade plate");
+    const box = plate.box;
+    // Well above the terminal on the wall.
+    expect(box.centre.y - box.size.y / 2).toBeGreaterThan(
+      terminal.position.y + terminal.size.y / 2 + 2,
+    );
+    // And not on the camera's line of sight to it from the right side's stop.
+    const from = posePosition(sidePose("right"));
+    const to = terminal.position;
+    for (let i = 0; i <= 200; i += 1) {
+      const t = i / 200;
+      const p = {
+        x: from.x + (to.x - from.x) * t,
+        y: from.y + (to.y - from.y) * t,
+        z: from.z + (to.z - from.z) * t,
+      };
+      const inside =
+        Math.abs(p.x - box.centre.x) < box.size.x / 2 + 0.1 &&
+        Math.abs(p.y - box.centre.y) < box.size.y / 2 + 0.1 &&
+        Math.abs(p.z - box.centre.z) < box.size.z / 2 + 0.1;
+      expect(inside).toBe(false);
     }
   });
 
