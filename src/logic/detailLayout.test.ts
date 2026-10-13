@@ -8,6 +8,7 @@ import {
   type Vec3,
 } from "./buildingLayout";
 import { CAMERA } from "./cameraOrbit";
+import { skillSignsLayout } from "./skillSignsLayout";
 import {
   DETAIL_SIZES,
   DETAIL_TEXTURE,
@@ -16,7 +17,10 @@ import {
   detailUv,
   roofTopY,
   sagPoints,
+  signPlateVertices,
+  VERTICES_PER_BOX,
   wallBox,
+  withSignPlates,
   type DetailShades,
 } from "./detailLayout";
 
@@ -27,6 +31,7 @@ const SHADES: DetailShades = {
   cable: 0.1,
   puddle: 0.05,
   face: 0,
+  signPlate: 0.08,
 };
 
 function corners(box: Box): Vec3[] {
@@ -311,5 +316,47 @@ describe("detailGeometryData", () => {
       expect(data.colors[v * 3]).toBe(SHADES.face);
       expect(inDark(v)).toBe(false);
     }
+  });
+});
+
+describe("withSignPlates", () => {
+  const base = detailLayout();
+  const plates = skillSignsLayout(7).signs.map((sign) => sign.plate);
+  const merged = withSignPlates(base, plates);
+
+  it("adds the plates last among the boxes and leaves everything else as it was", () => {
+    expect(merged.boxes.slice(0, base.boxes.length)).toEqual(base.boxes);
+    expect(merged.boxes.slice(base.boxes.length)).toEqual(
+      plates.map((box) => ({ kind: "signPlate", box })),
+    );
+    expect(merged.beams).toEqual(base.beams);
+    expect(merged.faces).toEqual(base.faces);
+  });
+
+  it("finds the plates' vertices in the merged geometry, shaded and dark", () => {
+    const range = signPlateVertices(merged);
+    expect(range).toEqual({
+      start: base.boxes.length * VERTICES_PER_BOX,
+      count: plates.length * VERTICES_PER_BOX,
+    });
+    const data = detailGeometryData(merged, 1, SHADES);
+    const dark = detailUv(DETAIL_TEXTURE.rects.dark);
+    for (let v = range.start; v < range.start + range.count; v += 1) {
+      expect(data.colors[v * 3]).toBe(SHADES.signPlate);
+      const u = data.atlasUvs[v * 2] ?? -1;
+      expect(u > dark.uMin && u < dark.uMax).toBe(true);
+    }
+    // The plates' boxes keep the world positions the layout gave them.
+    const first = plates[0];
+    if (first === undefined) throw new Error("no plates");
+    const xs: number[] = [];
+    for (let v = range.start; v < range.start + VERTICES_PER_BOX; v += 1)
+      xs.push(data.positions[v * 3] ?? Number.NaN);
+    expect(Math.min(...xs)).toBeCloseTo(first.centre.x - first.size.x / 2);
+    expect(Math.max(...xs)).toBeCloseTo(first.centre.x + first.size.x / 2);
+  });
+
+  it("finds no plate vertices in a layout without plates", () => {
+    expect(signPlateVertices(base)).toEqual({ start: 0, count: 0 });
   });
 });

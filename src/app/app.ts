@@ -166,7 +166,7 @@ export function startApp(
       nearestSide: () => rig.nearestSide(),
     },
     highlight: (id) => {
-      spots.setHighlighted(id);
+      stage.setHighlighted(id);
     },
     onChange: (state) => {
       panels.sync(state.mode);
@@ -259,7 +259,7 @@ export function startApp(
     const dtMs = clock.tick(timeMs);
     resizeIfNeeded();
     rig.update(dtMs);
-    stage.update(dtMs, reducedMotion.value);
+    stage.update(dtMs, reducedMotion.value, camera);
     post.render(dtMs);
     showStats();
   });

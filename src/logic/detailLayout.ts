@@ -23,7 +23,14 @@ import {
 import type { AtlasQuad, PixelRect } from "./graffitiLayout";
 
 /** What a part is made of, which sets its shade and how it samples the atlas. */
-export type DetailKind = "metal" | "plate" | "cable" | "puddle" | "face";
+export type DetailKind =
+  | "metal"
+  | "plate"
+  | "cable"
+  | "puddle"
+  | "face"
+  /** The left side's skill-sign backing plates (task 15), merged in to save a draw call. */
+  | "signPlate";
 
 export type DetailBox = { readonly kind: DetailKind; readonly box: Box };
 
@@ -49,7 +56,8 @@ export type DetailLayout = {
 /**
  * The atlas: 1024 x 512 px (inside the 1K budget). The rooftop sign across the top, the two
  * shop signs side by side below it, then a black patch that every plain part samples (so it
- * never glows) and a dim neon-reflection patch for the puddles.
+ * never glows), a faint red patch the skill-sign plates switch to while the cluster is
+ * hovered, and a dim neon-reflection patch for the puddles.
  */
 export const DETAIL_TEXTURE = {
   widthPx: 1024,
@@ -59,12 +67,13 @@ export const DETAIL_TEXTURE = {
     cafe: { x: 0, y: 224, width: 512, height: 128 },
     arcade: { x: 512, y: 224, width: 512, height: 128 },
     dark: { x: 0, y: 384, width: 128, height: 128 },
+    plateLit: { x: 128, y: 384, width: 128, height: 128 },
     puddle: { x: 256, y: 384, width: 256, height: 128 },
   },
 } as const satisfies {
   widthPx: number;
   heightPx: number;
-  rects: Record<SignId | "dark" | "puddle", PixelRect>;
+  rects: Record<SignId | "dark" | "plateLit" | "puddle", PixelRect>;
 };
 
 /** Sizes in metres. Sign faces keep their atlas rectangle's aspect, so text isn't stretched. */
@@ -538,8 +547,42 @@ const unit = (a: Vec): Vec => {
   return length > 0 ? scale(a, 1 / length) : { x: 0, y: 1, z: 0 };
 };
 
+/**
+ * The layout with the skill signs' backing plates added at the end of its boxes (task 15):
+ * they join the details mesh, so the signs cost one draw call (their faces) instead of two.
+ */
+export function withSignPlates(
+  layout: DetailLayout,
+  plates: readonly Box[],
+): DetailLayout {
+  return {
+    ...layout,
+    boxes: [
+      ...layout.boxes,
+      ...plates.map((box): DetailBox => ({ kind: "signPlate", box })),
+    ],
+  };
+}
+
+/** Vertices per box in `boxesGeometryData` (6 faces of 4 corners); boxes come first. */
+export const VERTICES_PER_BOX = 24;
+
+/**
+ * The vertices of the sign plates in `detailGeometryData`'s output, so the scene can
+ * switch their atlas UVs on hover. `withSignPlates` puts them last among the boxes.
+ */
+export function signPlateVertices(layout: DetailLayout): {
+  readonly start: number;
+  readonly count: number;
+} {
+  const first = layout.boxes.findIndex((part) => part.kind === "signPlate");
+  if (first < 0) return { start: 0, count: 0 };
+  const count = layout.boxes.length - first;
+  return { start: first * VERTICES_PER_BOX, count: count * VERTICES_PER_BOX };
+}
+
 /** The atlas coordinates of a rectangle's centre. */
-function centreUv(rect: PixelRect): [number, number] {
+export function centreUv(rect: PixelRect): [number, number] {
   const uv = detailUv(rect);
   return [(uv.uMin + uv.uMax) / 2, (uv.vMin + uv.vMax) / 2];
 }

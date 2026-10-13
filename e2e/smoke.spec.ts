@@ -76,8 +76,8 @@ test("the default view renders the look pass within its draw-call budget", async
   await expect(canvas).toHaveAttribute("data-draw-calls", /^\d+$/);
 
   // Scene pass only: merged walls, trim, pavement and street, instanced neon, the cabinet
-  // (body and screen), the skill signs (plates and faces), the graffiti wall, the door
-  // terminal and the merged detail props (task 14).
+  // (body and screen), the skill sign faces, the graffiti wall, the door terminal, the
+  // merged detail props with the skill signs' plates (task 15) and the instanced fog wisps.
   const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
   expect(drawCalls).toBeGreaterThan(0);
   expect(drawCalls).toBeLessThanOrEqual(12);
