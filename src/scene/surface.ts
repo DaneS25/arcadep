@@ -15,6 +15,8 @@ import {
   type SurfaceMaterialParams,
 } from "@/logic/lookConfig";
 import type { TextureSlot } from "@/logic/assetManifest";
+import { grimeUvs } from "@/logic/grimeLayout";
+import { addGrime, type GrimeTextures } from "./grime";
 
 export type Surface = {
   readonly id: SurfaceId;
@@ -28,12 +30,14 @@ export type Surface = {
 
 /**
  * One merged mesh holding every box of a surface (all walls, all trim), so the whole
- * surface is one draw call with one material. Starts in its plain colour.
+ * surface is one draw call with one material. Starts in its plain colour. With `grime`
+ * (the wall grime atlas, task 22), each face also reads its side's grime by where it is.
  */
 export function createSurface(
   id: SurfaceId,
   boxes: readonly Box[],
   name: string,
+  grime?: GrimeTextures,
 ): Surface {
   const look = SURFACES[id];
   const data = boxesGeometryData(boxes, look.tileM);
@@ -48,6 +52,13 @@ export function createSurface(
   geometry.computeBoundingSphere();
 
   const material = new MeshStandardMaterial();
+  if (grime !== undefined) {
+    geometry.setAttribute(
+      "grimeUv",
+      new Float32BufferAttribute(grimeUvs(data), 2),
+    );
+    addGrime(material, { grime, source: { kind: "attribute" } });
+  }
   const apply = (params: SurfaceMaterialParams<Texture>): void => {
     material.color.set(params.color);
     material.map = params.map;

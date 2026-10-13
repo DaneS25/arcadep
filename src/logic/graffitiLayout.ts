@@ -15,9 +15,12 @@
 import type { GeometryData } from "./boxGeometry";
 import type { InteractionSpot, Side, Vec3 } from "./buildingLayout";
 import {
+  WINDOW,
   floorLevels,
   glassRects,
+  openingRect,
   pointOnSide,
+  wallOpenings,
   sideAzimuthRad,
   sideNormal,
   sideWidthM,
@@ -25,6 +28,9 @@ import {
 } from "./buildingLayout";
 import { spotFor, toLocal, toWorld } from "./cabinetLayout";
 import type { CameraPose } from "./cameraOrbit";
+import { grimeMarks, type TintId } from "./grimeLayout";
+import { TAG_COLORS } from "./graffitiTags";
+import { PALETTE } from "./palette";
 import { createRng } from "./rng";
 
 export const GRAFFITI_SIDE: Side = "back";
@@ -451,4 +457,123 @@ export function postersViewPose(side: Side = GRAFFITI_SIDE): CameraPose {
       distanceM: POSTERS_VIEW.distanceM,
     },
   };
+}
+
+/**
+ * The weathering's colours on the paint (task 22): dark, not multipliers, since the tag
+ * layer is drawn colour. No yellow or amber: the rust is a dark red-brown.
+ */
+export const WEATHER_COLORS = {
+  water: "#121217",
+  rust: "#2e1511",
+  /** The stain spreading under a sill. */
+  sill: "#24130f",
+} as const;
+
+/** A grime run over the paint, in tag-layer pixels: it fades from the top down. */
+export type WeatherStreak = {
+  readonly rect: PixelRect;
+  readonly color: string;
+  readonly strength: number;
+};
+
+/**
+ * The wall's water streaks and rust runs (`grimeMarks`) as they fall across the tag
+ * layer, so the paint looks rained on too. Drawn only where there is paint (the wall's
+ * own grime shows through the gaps).
+ */
+export function weatherStreaks(layout: GraffitiLayout): WeatherStreak[] {
+  const streaks: WeatherStreak[] = [];
+  for (const mark of grimeMarks(layout.side)) {
+    if (mark.kind !== "streak") continue;
+    const color = weatherColor(mark.tint);
+    if (color === undefined) continue;
+    const rect = wallPixelRect(layout.spot, layout.wallRect, {
+      side: layout.side,
+      minAlong: mark.along - mark.widthM / 2,
+      maxAlong: mark.along + mark.widthM / 2,
+      minY: mark.topY - mark.lengthM,
+      maxY: mark.topY,
+    });
+    if (rect.width > 0 && rect.height > 0)
+      streaks.push({ rect, color, strength: mark.strength * 0.7 });
+  }
+  return streaks;
+}
+
+function weatherColor(tint: TintId): string | undefined {
+  if (tint === "water") return WEATHER_COLORS.water;
+  if (tint === "rust") return WEATHER_COLORS.rust;
+  return undefined;
+}
+
+/** A run of paint from a sill, in tag-layer pixels: from (`x`, `y`) down `lengthPx`. */
+export type PaintRun = {
+  readonly x: number;
+  readonly y: number;
+  readonly lengthPx: number;
+  readonly widthPx: number;
+  readonly color: string;
+};
+
+/** Stains and paint drips under one window's sill (task 20 review). */
+export type SillDrip = {
+  /** The stain: from the sill's underside down, the sill's width. */
+  readonly stain: PixelRect;
+  readonly runs: readonly PaintRun[];
+};
+
+export const SILL_DRIP_SEED = 0x51d1;
+
+/** The paint run off the sills: the tags' neon colours, not the pale ones. */
+export const SILL_DRIP_COLORS = TAG_COLORS.filter((token) => token !== "text");
+
+/** How many of the wall's windows get drips. */
+export const SILL_DRIP_WINDOWS = 4;
+
+/**
+ * A few of the back windows' sills with a dark stain spreading down from them and paint
+ * run off them (someone tagged the sill, and the rain did the rest). Seeded; drawn over the
+ * tags and under the posters.
+ */
+export function sillDrips(
+  layout: GraffitiLayout,
+  seed = SILL_DRIP_SEED,
+): SillDrip[] {
+  const rng = createRng(seed);
+  const windows = wallOpenings().filter(
+    (o) => o.side === layout.side && o.kind === "window",
+  );
+  // A seeded pick of a few windows, in wall order.
+  const chosen = windows
+    .map((o) => ({ o, key: rng.next() }))
+    .sort((a, b) => a.key - b.key)
+    .slice(0, SILL_DRIP_WINDOWS)
+    .map((c) => c.o)
+    .sort((a, b) => a.alongM - b.alongM);
+  const pyPerM = layout.wallRect.height / (TAG_AREA.topY - TAG_AREA.bottomY);
+  return chosen.map((o) => {
+    const frame = openingRect(o);
+    const sillY = o.bottomY - WINDOW.sillHeightM;
+    const stain = wallPixelRect(layout.spot, layout.wallRect, {
+      side: o.side,
+      minAlong: frame.minAlong - WINDOW.sillOverhangM,
+      maxAlong: frame.maxAlong + WINDOW.sillOverhangM,
+      minY: sillY - rng.range(0.8, 1.6),
+      maxY: sillY,
+    });
+    const count = rng.int(2, 5);
+    const runs: PaintRun[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const token = rng.pick(SILL_DRIP_COLORS) ?? "accent";
+      runs.push({
+        x: stain.x + rng.range(0.08, 0.92) * stain.width,
+        y: stain.y,
+        lengthPx: rng.range(0.3, 1.3) * pyPerM,
+        widthPx: Math.max(2, rng.range(0.015, 0.035) * pyPerM),
+        color: rng.next() < 0.3 ? WEATHER_COLORS.rust : PALETTE[token],
+      });
+    }
+    return { stain, runs };
+  });
 }

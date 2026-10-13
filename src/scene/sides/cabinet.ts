@@ -1,5 +1,6 @@
 import {
   CanvasTexture,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -15,6 +16,9 @@ import {
   glowGeometryData,
 } from "@/logic/cabinetLayout";
 import { CABINET_LOOK } from "@/logic/lookConfig";
+import { PROP_GRIME } from "@/logic/grimeLayout";
+import { STICKER_TILE, boxFaceCoords } from "@/logic/wearLayout";
+import { addGrime, createPropGrime, createStickerTile } from "../grime";
 import { PALETTE } from "@/logic/palette";
 import { CABINET_CREDIT, CABINET_MARQUEE, PRESS_START } from "@/ui/copy";
 import { fitFont, glowText, toGeometry } from "./canvasText";
@@ -109,6 +113,26 @@ export function createCabinet(
   const layout = cabinetLayout();
 
   const bodyGeometry = toGeometry(boxesGeometryData(layout.parts, 1));
+  // A cabinet that has stood on the street for years (task 22 review): stickers, scuffs,
+  // scratches, worn edges and a grimy base, all in the body's own material.
+  const faces = boxFaceCoords(layout.parts);
+  bodyGeometry.setAttribute(
+    "faceUv",
+    new Float32BufferAttribute(faces.faceUvs, 2),
+  );
+  bodyGeometry.setAttribute(
+    "faceSize",
+    new Float32BufferAttribute(faces.faceSizes, 2),
+  );
+  bodyGeometry.setAttribute(
+    "sticker",
+    new Float32BufferAttribute(
+      new Array<number>(faces.faceSizes.length / 2).fill(1),
+      1,
+    ),
+  );
+  const grime = createPropGrime(doc);
+  const stickerTile = createStickerTile(doc);
   const body = new MeshStandardMaterial({
     color: PALETTE.cabinet,
     roughness: CABINET_LOOK.bodyRoughness,
@@ -117,6 +141,14 @@ export function createCabinet(
   const bodyLit = body.clone();
   bodyLit.emissive.set(PALETTE.accent);
   bodyLit.emissiveIntensity = CABINET_LOOK.highlightEmissive;
+  for (const material of [body, bodyLit])
+    addGrime(material, {
+      grime,
+      source: { kind: "uv", scale: 1 / PROP_GRIME.tileM },
+      // The stickers twice as dense as on the props: it's what people stick them on.
+      wear: { stickers: stickerTile.texture, scale: 2 / STICKER_TILE.tileM },
+      dirtyBase: true,
+    });
   const bodyMesh = new Mesh(bodyGeometry, body);
   bodyMesh.name = "cabinet-body";
 
@@ -170,6 +202,8 @@ export function createCabinet(
       faceGeometry.dispose();
       faceMaterial.dispose();
       texture.dispose();
+      grime.dispose();
+      stickerTile.dispose();
       canvas.width = 0;
       canvas.height = 0;
     },
