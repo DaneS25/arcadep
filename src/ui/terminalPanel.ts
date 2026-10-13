@@ -137,7 +137,7 @@ export function outputFor(
 }
 
 /**
- * The right side's door terminal, shown full screen in the panel layer: an output log, a
+ * The right side's door terminal, shown in the panel layer's centred dialog: an output log, a
  * prompt with a text input (focused on open), and every command as a button. Typing a
  * command or clicking one runs it; `exit` asks to close through `onExit`, as Escape does.
  * ArrowUp and ArrowDown in the input step through earlier commands. Contact details are

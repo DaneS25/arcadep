@@ -89,7 +89,7 @@ describe("stopPose", () => {
     );
   });
 
-  it("has no close-up for the right side, whose terminal goes full screen", () => {
+  it("has no close-up for the right side, whose terminal jacks in instead", () => {
     expect(CLOSE_UP_SIDES).not.toContain("right");
     expect(stopPose({ kind: "closeUp", side: "right" })).toEqual(
       sidePose("right"),
@@ -119,7 +119,7 @@ describe("the signs' close-up", () => {
     expect(Math.abs(camera.y - pose.target.y)).toBeLessThan(1);
   });
 
-  it("frames the whole cluster left of a right-docked panel, much larger than the side view", () => {
+  it("frames the whole cluster centred behind the centred panel, much larger than the side view", () => {
     const halfTan = Math.tan(25 * DEG);
     const distance = Math.abs(camera.x - pose.target.x);
     // Horizontal screen position from -1 (left edge) to 1 on a 16:9 window. The left wall
@@ -129,8 +129,11 @@ describe("the signs' close-up", () => {
     const zs = layout.signs.flatMap((s) => s.quad.corners.map((c) => c.z));
     const ys = layout.signs.flatMap((s) => s.quad.corners.map((c) => c.y));
     expect(ndc(Math.min(...zs))).toBeGreaterThan(-1);
-    // The panel (40rem) docks to the right, covering about the right third at 1920 px.
-    expect(ndc(Math.max(...zs))).toBeLessThan(1 / 3);
+    expect(ndc(Math.max(...zs))).toBeLessThan(1);
+    // Every panel opens centred (task 18), so the cluster is centred behind it.
+    expect(
+      Math.abs((ndc(Math.min(...zs)) + ndc(Math.max(...zs))) / 2),
+    ).toBeLessThan(0.15);
     expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(
       2 * distance * halfTan,
     );
@@ -151,7 +154,7 @@ describe("the posters' close-up", () => {
     expect(camera.y).toBeLessThan(STREET.alleyWallHeightM + 3);
   });
 
-  it("frames a three-poster row left of a right-docked panel on a 16:9 window", () => {
+  it("frames a three-poster row centred behind the centred panel on a 16:9 window", () => {
     const layout = graffitiLayout(3, 1);
     const distance = Math.hypot(
       camera.z - pose.target.z,
@@ -160,12 +163,13 @@ describe("the posters' close-up", () => {
     // The back wall faces -z, so the visitor's right is -x.
     const ndc = (x: number): number =>
       -(x - pose.target.x) / (distance * Math.tan(25 * DEG) * (16 / 9));
-    // The whole row is in view, and every poster's centre is clear of the panel.
+    // The whole row is in view and centred, behind the centred panel (task 18).
     const xs = layout.posters.flatMap((p) => p.quad.corners.map((c) => c.x));
     expect(ndc(Math.max(...xs))).toBeGreaterThan(-1);
     expect(ndc(Math.min(...xs))).toBeLessThan(1);
-    for (const poster of layout.posters)
-      expect(ndc(poster.centre.x)).toBeLessThan(1 / 3);
+    expect(
+      Math.abs((ndc(Math.max(...xs)) + ndc(Math.min(...xs))) / 2),
+    ).toBeLessThan(0.15);
   });
 });
 

@@ -3,19 +3,6 @@
  * on the panel surface; the neon glow is decoration round them.
  */
 
-.panel[data-side="left"]::backdrop {
-  /* Lighter, like the cabinet's, so the camera's close-up of the neon signs shows round the panel. */
-  background: rgb(7 7 11 / 45%);
-}
-
-/* On wide windows the panel docks to the right and the camera's close-up frames the
-   neon signs on the left, so both show at once. */
-@media (min-width: 75rem) {
-  .panel[data-side="left"] {
-    margin-right: var(--space-3);
-  }
-}
-
 .skills {
   display: grid;
   grid-template-columns: minmax(10rem, 14rem) 1fr;

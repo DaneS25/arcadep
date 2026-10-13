@@ -24,6 +24,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // Only `?raw` CSS imports get their real text (tests read the panel styles, task 18);
+    // plain CSS imports stay empty, so no styles leak into the jsdom tests.
+    css: { include: [/\.css\?raw$/] },
     include: ["src/**/*.test.ts"],
   },
 });

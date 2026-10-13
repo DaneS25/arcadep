@@ -1,32 +1,25 @@
 /*
- * Door terminal (right side, contact): the panel layer's dialog goes full screen for this
- * side. Text colours are palette tokens checked for WCAG AA on the base colour.
+ * Door terminal (right side, contact): the panel layer's centred dialog, at the same width as
+ * every other panel, dressed as a terminal. Its body asks for the panel's full maximum
+ * height, so the log has room and the panel doesn't grow as output is added. Text colours are palette tokens checked for
+ * WCAG AA on the base colour.
  */
 
 :root {
-  /* The "jack in": a CRT line opening to fill the screen, with the street fading to black. */
-  --jack-in-ms: 700ms;
+  /* The "jack in": a bright CRT line opening to the panel's full height. */
+  --jack-in-ms: 450ms;
 }
 
 .panel[data-side="right"] {
-  inset: 0;
-  width: 100vw;
-  max-width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
+  border-color: var(--color-cyan, #22e4ff);
   background: var(--color-base, #07070b);
-  box-shadow: none;
+  box-shadow:
+    0 0 0 1px rgb(34 228 255 / 25%),
+    0 0 24px rgb(34 228 255 / 30%);
 }
 
-.panel[data-side="right"]::backdrop {
-  background: var(--color-base, #07070b);
-}
-
-.panel[data-side="right"] .panel__frame {
-  height: 100%;
+.panel[data-side="right"] .panel__header {
+  border-bottom-color: rgb(34 228 255 / 30%);
 }
 
 .panel[data-side="right"] .panel__title {
@@ -36,8 +29,7 @@
 
 .panel[data-side="right"] .panel__body {
   display: flex;
-  flex: 1;
-  min-height: 0;
+  flex-basis: var(--panel-height);
   overflow: hidden;
 }
 
@@ -125,21 +117,10 @@
   color: var(--color-base, #07070b);
 }
 
+/* Only when motion is allowed; under reduced motion it opens like every other panel. */
 @media (prefers-reduced-motion: no-preference) {
   .panel[data-side="right"][open] {
     animation: jack-in var(--jack-in-ms) ease-out;
-  }
-
-  .panel[data-side="right"][open]::backdrop {
-    animation: panel-in var(--jack-in-ms) ease-in;
-  }
-}
-
-/* Reduced motion: no opening line or flash, only a short opacity fade. */
-@media (prefers-reduced-motion: reduce) {
-  .panel[data-side="right"][open],
-  .panel[data-side="right"][open]::backdrop {
-    animation: panel-in var(--fade-ms) linear;
   }
 }
 
