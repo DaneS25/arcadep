@@ -3,6 +3,50 @@ import { contact } from "../src/content/contact";
 import { profile } from "../src/content/profile";
 import { projects } from "../src/content/projects";
 import { skills } from "../src/content/skills";
+import type { Vec3 } from "../src/logic/buildingLayout";
+import { posePosition, sidePose } from "../src/logic/cameraOrbit";
+import { graffitiLayout } from "../src/logic/graffitiLayout";
+import { seedFromText } from "../src/logic/neonFlicker";
+
+/**
+ * Where a world point lands in the canvas from a side's view (the app's 50° camera), in
+ * page pixels, so a test can click one poster.
+ */
+function screenPointFromSide(
+  side: "back",
+  point: Vec3,
+  box: { x: number; y: number; width: number; height: number },
+): { x: number; y: number } {
+  const pose = sidePose(side);
+  const eye = posePosition(pose);
+  const sub = (a: Vec3, b: Vec3): Vec3 => ({
+    x: a.x - b.x,
+    y: a.y - b.y,
+    z: a.z - b.z,
+  });
+  const dot = (a: Vec3, b: Vec3): number => a.x * b.x + a.y * b.y + a.z * b.z;
+  const cross = (a: Vec3, b: Vec3): Vec3 => ({
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  });
+  const unit = (a: Vec3): Vec3 => {
+    const l = Math.hypot(a.x, a.y, a.z);
+    return { x: a.x / l, y: a.y / l, z: a.z / l };
+  };
+  const forward = unit(sub(pose.target, eye));
+  const right = unit(cross(forward, { x: 0, y: 1, z: 0 }));
+  const up = cross(right, forward);
+  const d = sub(point, eye);
+  const depth = dot(d, forward);
+  const halfTan = Math.tan((25 * Math.PI) / 180);
+  const ndcX = dot(d, right) / depth / (halfTan * (box.width / box.height));
+  const ndcY = dot(d, up) / depth / halfTan;
+  return {
+    x: box.x + ((ndcX + 1) / 2) * box.width,
+    y: box.y + ((1 - ndcY) / 2) * box.height,
+  };
+}
 
 test("the built site loads without console errors", async ({ page }) => {
   const errors: string[] = [];
@@ -32,10 +76,12 @@ test("the default view renders the look pass within its draw-call budget", async
   await expect(canvas).toHaveAttribute("data-draw-calls", /^\d+$/);
 
   // Scene pass only: merged walls, trim, pavement and street, instanced neon, the cabinet
-  // (body and screen), the skill signs (plates and faces), the graffiti wall and the door terminal.
+  // (body and screen), the skill signs (plates and faces), the graffiti wall, the door
+  // terminal and the merged detail props (task 14).
   const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
   expect(drawCalls).toBeGreaterThan(0);
   expect(drawCalls).toBeLessThanOrEqual(12);
+  await expect(canvas).toHaveAttribute("data-textures", /^\d+$/);
   await page.screenshot({ path: "test-results/look-default.png" });
 });
 
@@ -291,6 +337,9 @@ test.describe("left: neon skill signs", () => {
     const panel = page.getByRole("dialog");
     await expect(panel).toBeVisible();
     await expect(panel).toHaveAttribute("data-side", "left");
+    // The camera moves in close so the signs read larger (a cut under reduced motion).
+    await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       first.name,
     );
@@ -318,6 +367,7 @@ test.describe("left: neon skill signs", () => {
     await expect(panel).toBeHidden();
     await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await expect(canvas).toHaveAttribute("data-camera-view", "side");
     await expect(canvas).toBeFocused();
   });
 });
@@ -346,6 +396,7 @@ test.describe("back: graffiti alley", () => {
     const panel = page.getByRole("dialog");
     await expect(panel).toBeVisible();
     await expect(panel).toHaveAttribute("data-side", "back");
+    await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       first.title,
     );
@@ -372,7 +423,52 @@ test.describe("back: graffiti alley", () => {
     await expect(panel).toBeHidden();
     await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await expect(canvas).toHaveAttribute("data-camera-view", "side");
     await expect(canvas).toBeFocused();
+  });
+
+  test("clicking a poster opens the Projects panel on that poster's project", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+
+    // The wall lays its posters out from the projects' ids, as the scene does.
+    const layout = graffitiLayout(
+      projects.length,
+      seedFromText(projects.map((p) => p.id).join("|")),
+    );
+    for (const index of [1, 2, 0]) {
+      const poster = layout.posters[index];
+      const project = projects[index];
+      if (poster === undefined || project === undefined)
+        throw new Error("the dummy content needs three projects");
+      const at = screenPointFromSide("back", poster.centre, box);
+      await page.mouse.click(at.x, at.y);
+      const panel = page.getByRole("dialog");
+      await expect(panel).toBeVisible();
+      await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+        project.title,
+      );
+      await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+      if (index === 1)
+        await page.screenshot({ path: "test-results/back-poster-click.png" });
+      await page.keyboard.press("Escape");
+      await expect(panel).toBeHidden();
+      await expect(canvas).toHaveAttribute("data-camera-view", "side");
+    }
+
+    // Enter still opens on the first project.
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("dialog").getByRole("heading", { level: 3 }),
+    ).toHaveText(projects[0]?.title ?? "");
   });
 });
 
@@ -457,6 +553,20 @@ test("the camera tweens in to the cabinet's screen with motion allowed", async (
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+  await page.keyboard.press("Escape");
+  await expect(canvas).toHaveAttribute("data-camera-view", "side");
+});
+
+test("the camera tweens in to the signs with motion allowed", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#loading-screen")).toBeHidden();
+  const canvas = page.locator("canvas.scene");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Enter");
+  await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+  await expect(canvas).toHaveAttribute("data-camera-side", "left");
   await page.keyboard.press("Escape");
   await expect(canvas).toHaveAttribute("data-camera-view", "side");
 });

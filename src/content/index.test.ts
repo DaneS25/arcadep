@@ -22,3 +22,11 @@ describe("loadContent", () => {
     );
   });
 });
+
+describe("signage", () => {
+  it("gives every shop sign some words", async () => {
+    const { signage } = await import("@/content/signage");
+    for (const text of Object.values(signage))
+      expect(text.trim().length).toBeGreaterThan(0);
+  });
+});

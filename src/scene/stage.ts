@@ -8,6 +8,10 @@ import { createNeonTubes } from "./atmosphere/neon";
 import { createBuilding, type Building } from "./building/building";
 import type { SpotsContent } from "./building/spots";
 import { createGround } from "./ground";
+import { createDetails, type SignTexts } from "./props/details";
+
+/** What the stage shows: each side's content, plus the words on the building's signs. */
+export type StageContent = SpotsContent & { readonly signs: SignTexts };
 
 export type Stage = {
   scene: Scene;
@@ -25,8 +29,11 @@ export type Stage = {
   dispose(): void;
 };
 
-/** The night street corner: fog, lights, the wet street, the building and its neon. */
-export function createStage(content: SpotsContent): Stage {
+/**
+ * The night street corner: fog, lights, the wet street, the building, its neon and its
+ * detail props (task 14).
+ */
+export function createStage(content: StageContent): Stage {
   const scene = new Scene();
   scene.background = new Color(PALETTE.base);
   scene.fog = new FogExp2(FOG.color, FOG.density);
@@ -36,7 +43,14 @@ export function createStage(content: SpotsContent): Stage {
   const ground = createGround();
   const building = createBuilding(content);
   const neon = createNeonTubes();
-  scene.add(lights.object, ground.object, building.object, neon.object);
+  const details = createDetails(content.signs);
+  scene.add(
+    lights.object,
+    ground.object,
+    building.object,
+    neon.object,
+    details.object,
+  );
 
   return {
     scene,
@@ -44,6 +58,7 @@ export function createStage(content: SpotsContent): Stage {
     applyTextures(textures) {
       ground.applyTextures(textures);
       building.applyTextures(textures);
+      details.applyTextures(textures);
     },
     setEnvironment(texture) {
       scene.environment = texture;
@@ -54,6 +69,7 @@ export function createStage(content: SpotsContent): Stage {
     },
     redrawText() {
       building.spots.redrawText();
+      details.redraw();
     },
     dispose() {
       scene.clear();
@@ -62,6 +78,7 @@ export function createStage(content: SpotsContent): Stage {
       ground.dispose();
       building.dispose();
       neon.dispose();
+      details.dispose();
     },
   };
 }

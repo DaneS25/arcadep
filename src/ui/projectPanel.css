@@ -3,6 +3,19 @@
  * WCAG AA on the panel surface; the paper and spray look is decoration round them.
  */
 
+.panel[data-side="back"]::backdrop {
+  /* Lighter, like the cabinet's, so the camera's close-up of the posters shows round the panel. */
+  background: rgb(7 7 11 / 45%);
+}
+
+/* On wide windows the panel docks to the right and the camera's close-up frames the
+   posters on the left, so both show at once. */
+@media (min-width: 75rem) {
+  .panel[data-side="back"] {
+    margin-right: var(--space-3);
+  }
+}
+
 .projects {
   display: grid;
   grid-template-columns: minmax(10rem, 14rem) 1fr;

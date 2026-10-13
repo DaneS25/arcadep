@@ -4,6 +4,7 @@ import { relativeLuminance } from "./contrast";
 import {
   BLOOM,
   CABINET_LOOK,
+  DETAILS_LOOK,
   ENVIRONMENT_PANELS,
   FOG,
   GRAFFITI_LOOK,
@@ -146,5 +147,26 @@ describe("TERMINAL_LOOK", () => {
     expect(TERMINAL_LOOK.litEmissiveIntensity).toBeGreaterThan(
       TERMINAL_LOOK.emissiveIntensity,
     );
+  });
+});
+
+describe("DETAILS_LOOK", () => {
+  const glow = (hex: string): number =>
+    (relativeLuminance(hex) ?? Number.NaN) * DETAILS_LOOK.emissiveIntensity;
+
+  it("makes the signs' letters bloom, but never the puddles' reflection", () => {
+    expect(glow(DETAILS_LOOK.signCore)).toBeGreaterThan(BLOOM.threshold);
+    for (const hex of DETAILS_LOOK.puddleGlow)
+      expect(glow(hex)).toBeLessThan(BLOOM.threshold / 10);
+  });
+
+  it("uses the metal texture slot and shades sign faces black under their glow", () => {
+    expect(DETAILS_LOOK.surface.slot).toBe("metal");
+    expect(DETAILS_LOOK.shades.face).toBe(0);
+    expect(DETAILS_LOOK.shades.metal).toBe(1);
+    for (const shade of Object.values(DETAILS_LOOK.shades)) {
+      expect(shade).toBeGreaterThanOrEqual(0);
+      expect(shade).toBeLessThanOrEqual(1);
+    }
   });
 });

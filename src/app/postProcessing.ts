@@ -19,6 +19,8 @@ export type FrameStats = {
   readonly sceneTriangles: number;
   /** Draw calls for the whole frame, bloom and output passes included. */
   readonly frameCalls: number;
+  /** Textures the renderer holds on the GPU (`renderer.info.memory.textures`). */
+  readonly textures: number;
 };
 
 export type PostProcessing = {
@@ -62,7 +64,12 @@ export function createPostProcessing(
   composer.addPass(bloomPass);
   composer.addPass(outputPass);
 
-  let stats: FrameStats = { sceneCalls: 0, sceneTriangles: 0, frameCalls: 0 };
+  let stats: FrameStats = {
+    sceneCalls: 0,
+    sceneTriangles: 0,
+    frameCalls: 0,
+    textures: 0,
+  };
   let sceneCalls = 0;
   let sceneTriangles = 0;
   scene.onAfterRender = () => {
@@ -78,6 +85,7 @@ export function createPostProcessing(
         sceneCalls,
         sceneTriangles,
         frameCalls: renderer.info.render.calls,
+        textures: renderer.info.memory.textures,
       };
     },
     setSize(width, height, pixelRatio) {

@@ -220,3 +220,35 @@ describe("renderProjectPanel", () => {
     expect(dialog.querySelector(".projects__item")).toBeNull();
   });
 });
+
+describe("renderProjectPanel's first project", () => {
+  it("opens on the project whose poster was clicked", () => {
+    const view = renderProjectPanel(PROJECTS, document, () => false, 2);
+    const [rootNode] = view.body;
+    if (!(rootNode instanceof HTMLElement)) throw new Error("no root");
+    expect(rootNode.querySelector("h3")?.textContent).toBe("Gamma CLI");
+    expect(
+      rootNode
+        .querySelector('[data-project="c"]')
+        ?.getAttribute("aria-current"),
+    ).toBe("true");
+    view.dispose?.();
+  });
+
+  it("falls back to a project in range for a bad index", () => {
+    for (const [index, title] of [
+      [-1, "Alpha App"],
+      [9, "Gamma CLI"],
+      [1.5, "Alpha App"],
+    ] as const) {
+      const [rootNode] = renderProjectPanel(
+        PROJECTS,
+        document,
+        () => false,
+        index,
+      ).body;
+      if (!(rootNode instanceof HTMLElement)) throw new Error("no root");
+      expect(rootNode.querySelector("h3")?.textContent).toBe(title);
+    }
+  });
+});

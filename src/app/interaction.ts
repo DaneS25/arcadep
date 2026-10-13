@@ -11,7 +11,7 @@ import type { InteractiveId } from "@/logic/interactiveIds";
 import { eventForCommand, navCommandForKey } from "@/logic/navigationKeys";
 import { isClick, toNdc, type ScreenPoint } from "@/logic/pointer";
 import type { CameraRig } from "./cameraRig";
-import type { Picker } from "./picker";
+import type { PickHit, Picker } from "./picker";
 
 export type Interaction = {
   readonly state: AppState;
@@ -33,6 +33,11 @@ export type InteractionOptions = {
   highlight: (id: InteractiveId | undefined) => void;
   /** Hears every state change (the overlay panel layer follows the mode). */
   onChange: (state: AppState) => void;
+  /**
+   * Hears a click on an interactive object, with the point hit, just before the state
+   * machine opens its panel (so the graffiti wall can tell which poster was clicked).
+   */
+  onActivate?: (hit: PickHit) => void;
 };
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -85,13 +90,15 @@ export function createInteraction(options: InteractionOptions): Interaction {
     }
   };
 
-  const pickAt = (event: PointerEvent): InteractiveId | undefined => {
+  const hitAt = (event: PointerEvent): PickHit | undefined => {
     const ndc = toNdc(
       { x: event.clientX, y: event.clientY },
       canvas.getBoundingClientRect(),
     );
-    return ndc === undefined ? undefined : picker.pick(ndc, camera);
+    return ndc === undefined ? undefined : picker.pickHit(ndc, camera);
   };
+  const pickAt = (event: PointerEvent): InteractiveId | undefined =>
+    hitAt(event)?.id;
 
   const onPointerMove = (event: PointerEvent): void => {
     // Mid-drag the camera is orbiting; hover only follows a free pointer.
@@ -114,8 +121,10 @@ export function createInteraction(options: InteractionOptions): Interaction {
     down = undefined;
     if (start === undefined || event.button !== 0) return;
     if (!isClick(start, { x: event.clientX, y: event.clientY })) return;
-    const id = pickAt(event);
-    if (id !== undefined) send({ kind: "activate", id });
+    const hit = hitAt(event);
+    if (hit === undefined) return;
+    options.onActivate?.(hit);
+    send({ kind: "activate", id: hit.id });
   };
 
   keyTarget.addEventListener("keydown", onKeyDown);

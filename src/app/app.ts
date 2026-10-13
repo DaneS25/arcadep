@@ -1,4 +1,5 @@
 import { PerspectiveCamera } from "three";
+import { signage } from "@/content/signage";
 import type { SiteContent } from "@/content/types";
 import { createDisposer } from "@/logic/disposer";
 import { createFrameClock } from "@/logic/frameClock";
@@ -92,7 +93,10 @@ export function startApp(
     attract: { name: profile.name, title: profile.title },
     skills,
     projects,
+    signs: { rooftop: profile.name, ...signage },
   });
+  // The project whose poster was just clicked; the Projects panel opens on it once.
+  let chosenProject = 0;
   // Thumbnails that loaded, by path; the Projects panel only shows those.
   let thumbnails: ReadonlyMap<string, HTMLImageElement> = new Map();
   disposer.add(() => {
@@ -129,10 +133,16 @@ export function startApp(
     render: (side, doc) => {
       if (side === "front") return renderCrtPanel(profile.aboutPages, doc);
       if (side === "left") return renderSkillPanel(skills, doc);
-      if (side === "back")
-        return renderProjectPanel(projects, doc, (path) =>
-          thumbnails.has(path),
+      if (side === "back") {
+        const first = chosenProject;
+        chosenProject = 0;
+        return renderProjectPanel(
+          projects,
+          doc,
+          (path) => thumbnails.has(path),
+          first,
         );
+      }
       // `exit` closes like Escape: through the state machine, back to the street.
       return renderTerminalPanel({ profile, contact }, doc, () => {
         interaction.send({ kind: "close" });
@@ -160,6 +170,11 @@ export function startApp(
     },
     onChange: (state) => {
       panels.sync(state.mode);
+    },
+    onActivate: (hit) => {
+      // A click on a poster opens the Projects panel on that poster's project.
+      chosenProject =
+        hit.id === "spot-back" ? (spots.posterAt(hit.point) ?? 0) : 0;
     },
   });
   disposer.add(() => {
@@ -226,13 +241,14 @@ export function startApp(
     camera.updateProjectionMatrix();
   };
 
-  // Draw calls and triangles on the canvas, for the smoke test and performance checks.
+  // Draw calls, triangles and textures on the canvas, for the smoke test and performance checks.
   const showStats = (): void => {
-    const { sceneCalls, sceneTriangles, frameCalls } = post.stats();
+    const { sceneCalls, sceneTriangles, frameCalls, textures } = post.stats();
     const values = {
       drawCalls: String(sceneCalls),
       triangles: String(sceneTriangles),
       frameCalls: String(frameCalls),
+      textures: String(textures),
     };
     for (const [key, value] of Object.entries(values))
       if (canvas.dataset[key] !== value) canvas.dataset[key] = value;

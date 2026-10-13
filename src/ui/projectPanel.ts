@@ -27,6 +27,8 @@ export function renderProjectPanel(
   doc: Document,
   /** Whether a thumbnail loaded; a missing one is left out rather than shown broken. */
   hasThumbnail: (path: string) => boolean = () => false,
+  /** The project to show first: the poster clicked on the wall, else the first one. */
+  initialIndex = 0,
 ): PanelView {
   const root = doc.createElement("div");
   root.className = "projects";
@@ -67,7 +69,10 @@ export function renderProjectPanel(
   detail.setAttribute("aria-live", "polite");
   root.append(nav, detail);
 
-  let index = 0;
+  let index = Math.min(
+    projects.length - 1,
+    Math.max(0, Number.isInteger(initialIndex) ? initialIndex : 0),
+  );
 
   const draw = (): void => {
     const project = projects[index];

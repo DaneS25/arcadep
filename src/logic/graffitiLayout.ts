@@ -12,8 +12,9 @@
 
 import type { GeometryData } from "./boxGeometry";
 import type { InteractionSpot, Side, Vec3 } from "./buildingLayout";
-import { sideNormal } from "./buildingLayout";
-import { spotFor, toWorld } from "./cabinetLayout";
+import { sideAzimuthRad, sideNormal } from "./buildingLayout";
+import { spotFor, toLocal, toWorld } from "./cabinetLayout";
+import type { CameraPose } from "./cameraOrbit";
 import { createRng } from "./rng";
 
 export const GRAFFITI_SIDE: Side = "back";
@@ -274,4 +275,59 @@ export function atlasQuadGeometryData(
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
   return { positions, normals, uvs, indices };
+}
+
+/**
+ * The poster under a point on the wall (a picking hit, in world coordinates), as an index
+ * into `layout.posters` (and so into the projects shown), or undefined between posters.
+ * Each poster is tested in its own tilted frame.
+ */
+export function posterAt(
+  layout: GraffitiLayout,
+  point: Vec3,
+): number | undefined {
+  const local = toLocal(layout.spot, point);
+  const index = layout.posters.findIndex((poster) => {
+    const dx = local.across - poster.across;
+    const dy = local.up - poster.up;
+    const cos = Math.cos(poster.tiltRad);
+    const sin = Math.sin(poster.tiltRad);
+    const x = dx * cos + dy * sin;
+    const y = -dx * sin + dy * cos;
+    return (
+      Math.abs(x) <= poster.widthM / 2 && Math.abs(y) <= poster.heightM / 2
+    );
+  });
+  return index < 0 ? undefined : index;
+}
+
+/**
+ * How the camera frames the posters while the Projects panel is open (task 14). The alley
+ * is only 4 m wide, so the camera hangs over it, above the alley wall's top, and looks down
+ * at the row of posters; the tween in comes over the alley wall, not through it. Like the
+ * signs' view, it is aimed `offsetAcrossM` to the right, so the posters sit left of the
+ * panel, which docks to the right on wide windows.
+ */
+export const POSTERS_VIEW = {
+  polarRad: (37 * Math.PI) / 180,
+  distanceM: 6.2,
+  offsetAcrossM: 1.4,
+} as const;
+
+/** Where the camera stops to look at the posters: the centre of their row. */
+export function postersViewPose(side: Side = GRAFFITI_SIDE): CameraPose {
+  const spot = spotFor(side);
+  return {
+    target: toWorld(
+      spot,
+      POSTERS_VIEW.offsetAcrossM,
+      POSTER_SIZES.centreUpM,
+      LAYER_OUT_M.posters,
+    ),
+    orbit: {
+      azimuthRad: sideAzimuthRad(side),
+      polarRad: POSTERS_VIEW.polarRad,
+      distanceM: POSTERS_VIEW.distanceM,
+    },
+  };
 }

@@ -140,6 +140,22 @@ export function toWorld(
   };
 }
 
+/** A world point in a spot's local coordinates: the inverse of `toWorld`. */
+export function toLocal(
+  spot: InteractionSpot,
+  p: Vec3,
+): { across: number; up: number; out: number } {
+  const t = sideTangent(spot.side);
+  const n = sideNormal(spot.side);
+  const dx = p.x - spot.position.x;
+  const dz = p.z - spot.position.z;
+  return {
+    across: t.x * dx + t.z * dz,
+    up: p.y - spot.position.y + spot.size.y / 2,
+    out: n.x * dx + n.z * dz + spot.size.z / 2,
+  };
+}
+
 export function worldBox(spot: InteractionSpot, part: LocalBox): Box {
   const t = sideTangent(spot.side);
   const n = sideNormal(spot.side);
