@@ -1,0 +1,139 @@
+/*
+ * Projects panel (back side, graffiti alley). Text colours are palette tokens checked for
+ * WCAG AA on the panel surface; the paper and spray look is decoration round them.
+ */
+
+.projects {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) 1fr;
+  gap: var(--space-3);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Narrow windows: the list above the card. */
+@media (width <= 40rem) {
+  .projects {
+    grid-template-columns: 1fr;
+  }
+}
+
+.projects__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.projects__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.projects__item {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-cyan, #22e4ff);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-cyan, #22e4ff);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.projects__item:hover,
+.projects__item[aria-current="true"] {
+  background: var(--color-cyan, #22e4ff);
+  color: var(--color-panel, #0e0e15);
+}
+
+.projects__hint {
+  margin: 0;
+  color: var(--color-muted, #b4b4c2);
+  font-size: 0.8125rem;
+}
+
+.projects__detail {
+  min-height: 12rem;
+  padding: var(--space-3);
+  border: 2px dashed rgb(255 176 0 / 45%);
+  border-radius: 0.25rem;
+  background: var(--color-base, #07070b);
+  box-shadow: 0 0 1.5rem rgb(255 176 0 / 10%);
+}
+
+.projects__thumbnail {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  margin: 0 0 var(--space-2);
+  border: 1px solid var(--color-muted, #b4b4c2);
+  object-fit: cover;
+}
+
+.projects__title {
+  margin: 0;
+  color: var(--color-text, #e6e6ee);
+  font-family: var(--font-marker, cursive);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 10px rgb(255 42 61 / 60%);
+}
+
+.projects__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.projects__tags li {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-amber, #ffb000);
+  border-radius: var(--radius);
+  color: var(--color-amber, #ffb000);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.projects__description {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text, #e6e6ee);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.projects__link {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-cyan, #22e4ff);
+  border-radius: var(--radius);
+  color: var(--color-cyan, #22e4ff);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.projects__link:hover {
+  background: var(--color-cyan, #22e4ff);
+  color: var(--color-panel, #0e0e15);
+}
+
+/* A new project's card fades in, only when the visitor hasn't asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .projects__card {
+    animation: projects-card 160ms ease-out;
+  }
+}
+
+@keyframes projects-card {
+  from {
+    opacity: 0;
+  }
+}

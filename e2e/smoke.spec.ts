@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { profile } from "../src/content/profile";
+import { projects } from "../src/content/projects";
 import { skills } from "../src/content/skills";
 
 test("the built site loads without console errors", async ({ page }) => {
@@ -30,7 +31,7 @@ test("the default view renders the look pass within its draw-call budget", async
   await expect(canvas).toHaveAttribute("data-draw-calls", /^\d+$/);
 
   // Scene pass only: merged walls, trim, pavement and street, instanced neon, the cabinet
-  // (body and screen), the skill signs (plates and faces) and two markers.
+  // (body and screen), the skill signs (plates and faces), the graffiti wall and one marker.
   const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
   expect(drawCalls).toBeGreaterThan(0);
   expect(drawCalls).toBeLessThanOrEqual(12);
@@ -308,6 +309,60 @@ test.describe("left: neon skill signs", () => {
     await expect(panel).toBeHidden();
     await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await expect(canvas).toBeFocused();
+  });
+});
+
+test.describe("back: graffiti alley", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("opens the Projects panel by keyboard, links out in a new tab and closes with Escape", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const [first, second] = projects;
+    if (first === undefined || second === undefined)
+      throw new Error("the dummy content needs two projects");
+
+    // Tab order: front, right, back.
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-app-side", "back");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await page.screenshot({ path: "test-results/back-graffiti.png" });
+
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog");
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute("data-side", "back");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      first.title,
+    );
+    await expect(panel.getByText(first.description)).toBeVisible();
+    const link = panel.getByRole("link", { name: /Open project/ });
+    await expect(link).toHaveAttribute("href", first.url);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+
+    // Tab reaches the first project; the arrow keys move to the next one.
+    await page.keyboard.press("Tab");
+    await expect(
+      panel.getByRole("button", { name: first.title }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      second.title,
+    );
+    await expect(link).toHaveAttribute("href", second.url);
+    await expect(canvas).toHaveAttribute("data-app-state", "panel");
+    await page.screenshot({ path: "test-results/back-projects-panel.png" });
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
     await expect(canvas).toBeFocused();
   });
 });

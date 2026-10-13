@@ -29,6 +29,8 @@ export const PALETTE = {
   cabinet: "#1c1c26",
   /** Backing plates of the neon skill signs (left side). */
   signPlate: "#121219",
+  /** Paste-up poster paper on the graffiti wall (back side). */
+  posterPaper: "#d8d0bf",
 } as const;
 
 export type PaletteToken = keyof typeof PALETTE;

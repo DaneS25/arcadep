@@ -12,6 +12,7 @@ import {
 function fakeSources(
   textureUrls: readonly string[],
   families: readonly string[] = [],
+  imageUrls: readonly string[] = [],
 ): AssetSources & { created: Map<string, Texture> } {
   const created = new Map<string, Texture>();
   return {
@@ -24,6 +25,11 @@ function fakeSources(
     },
     loadFont(font) {
       return Promise.resolve(families.includes(font.family));
+    },
+    loadImage(url) {
+      return Promise.resolve(
+        imageUrls.includes(url) ? document.createElement("img") : null,
+      );
     },
   };
 }
@@ -106,6 +112,24 @@ describe("loadAssets", () => {
     assets.dispose();
 
     expect(onDispose).toHaveBeenCalledTimes(3);
+  });
+
+  it("loads project thumbnails once each and reports the missing ones in the same warning", async () => {
+    const warn = vi.fn();
+    const found = "/assets/thumbnails/a.png";
+    const lost = "/assets/thumbnails/b.png";
+
+    const assets = await loadAssets(fakeSources([], [], [found]), warn, [
+      found,
+      lost,
+      found,
+    ]);
+
+    expect([...assets.thumbnails.keys()]).toEqual([found]);
+    expect(assets.missing).toContain(lost);
+    expect(assets.missing).not.toContain(found);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain(lost);
   });
 
   it("lists missing assets in a stable sorted order", async () => {

@@ -6,6 +6,11 @@ import {
 } from "@/logic/buildingLayout";
 import { PALETTE } from "@/logic/palette";
 import { createCabinet, type AttractInfo } from "../sides/cabinet";
+import {
+  createGraffitiWall,
+  type PosterProject,
+  type Thumbnails,
+} from "../sides/graffitiWall";
 import { createNeonSigns, type SignSkill } from "../sides/neonSigns";
 import { boxMesh, createUnitBox } from "./boxMesh";
 
@@ -21,6 +26,8 @@ export type InteractionSpots = {
   markers: readonly SpotMarker[];
   /** Lights up one marker (hovered or focused), or none. */
   setHighlighted(id: SpotMarker["id"] | undefined): void;
+  /** Puts the loaded project thumbnails on the graffiti wall's posters. */
+  setThumbnails(thumbnails: Thumbnails): void;
   /** Runs the props' own animation (the cabinet's attract screen, the signs' flicker). */
   update(dtMs: number, reducedMotion: boolean): void;
   /** Redraws canvas text, once the fonts have loaded. */
@@ -33,12 +40,14 @@ export type SpotsContent = {
   attract: AttractInfo;
   /** One neon sign each on the left side. */
   skills: readonly SignSkill[];
+  /** One paste-up poster each on the back side. */
+  projects: readonly PosterProject[];
 };
 
 /**
  * Each side's interactive prop at its spot: the arcade cabinet on the front (task 10), the
- * neon skill signs on the left (task 11), and a glowing placeholder box on the sides still
- * to come (tasks 12 and 13). Every prop keeps its spot's id for picking.
+ * neon skill signs on the left (task 11), the graffiti wall on the back (task 12), and a
+ * glowing placeholder box on the side still to come (task 13). Every prop keeps its spot's id for picking.
  */
 export function createInteractionSpots(
   content: SpotsContent,
@@ -58,6 +67,7 @@ export function createInteractionSpots(
   const boxes = new Map<SpotMarker["id"], Mesh>();
   const cabinet = createCabinet(content.attract);
   const signs = createNeonSigns(content.skills);
+  const graffiti = createGraffitiWall(content.projects);
 
   const group = new Group();
   group.name = "interaction-spots";
@@ -69,6 +79,10 @@ export function createInteractionSpots(
     if (spot.side === "left") {
       group.add(signs.object);
       return { id: spot.id, side: spot.side, object: signs.object };
+    }
+    if (spot.side === "back") {
+      group.add(graffiti.object);
+      return { id: spot.id, side: spot.side, object: graffiti.object };
     }
     // Sizes are in the side's own frame; turning the box to face out of its wall lines them up.
     const mesh = boxMesh(
@@ -93,6 +107,10 @@ export function createInteractionSpots(
       }
       cabinet.setHighlighted(id === "spot-front");
       signs.setHighlighted(id === "spot-left");
+      graffiti.setHighlighted(id === "spot-back");
+    },
+    setThumbnails(thumbnails) {
+      graffiti.setThumbnails(thumbnails);
     },
     update(dtMs, reducedMotion) {
       cabinet.update(dtMs, reducedMotion);
@@ -101,12 +119,14 @@ export function createInteractionSpots(
     redrawText() {
       cabinet.redraw();
       signs.redraw();
+      graffiti.redraw();
     },
     dispose() {
       group.clear();
       boxes.clear();
       cabinet.dispose();
       signs.dispose();
+      graffiti.dispose();
       geometry.dispose();
       material.dispose();
       lit.dispose();

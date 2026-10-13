@@ -5,6 +5,7 @@ import {
   CABINET_LOOK,
   ENVIRONMENT_PANELS,
   FOG,
+  GRAFFITI_LOOK,
   NEON_INTENSITY,
   NEON_LIGHTS,
   SURFACES,
@@ -115,5 +116,17 @@ describe("CABINET_LOOK", () => {
   it("keeps the highlight a glow, not a light source", () => {
     expect(CABINET_LOOK.highlightEmissive).toBeGreaterThan(0);
     expect(CABINET_LOOK.highlightEmissive).toBeLessThan(1);
+  });
+});
+
+describe("GRAFFITI_LOOK", () => {
+  it("keeps the paint's glow under the bloom threshold, brighter when lit", () => {
+    expect(GRAFFITI_LOOK.emissiveIntensity).toBeLessThan(BLOOM.threshold);
+    expect(GRAFFITI_LOOK.litEmissiveIntensity).toBeLessThan(BLOOM.threshold);
+    expect(GRAFFITI_LOOK.litEmissiveIntensity).toBeGreaterThan(
+      GRAFFITI_LOOK.emissiveIntensity,
+    );
+    expect(GRAFFITI_LOOK.alphaTest).toBeGreaterThan(0);
+    expect(GRAFFITI_LOOK.alphaTest).toBeLessThan(0.1);
   });
 });

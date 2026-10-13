@@ -140,6 +140,17 @@ export const SIGNS_LOOK = {
   highlightEmissive: 0.25,
 } as const;
 
+/** The graffiti wall (back side): spray paint and paper, lit a little so it reads in the dark alley. */
+export const GRAFFITI_LOOK = {
+  roughness: 0.9,
+  /** The atlas also glows at this strength, kept under the bloom threshold so paint never blooms. */
+  emissiveIntensity: 0.35,
+  /** Brighter while the wall is hovered or focused. */
+  litEmissiveIntensity: 0.6,
+  /** Fully clear texels are skipped, so the wall's bricks show between the tags. */
+  alphaTest: 0.02,
+} as const;
+
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */
 export const BLOOM = {
   strength: 1.2,

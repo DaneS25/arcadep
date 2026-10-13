@@ -58,3 +58,18 @@ export const SKILL_LEVEL_LABEL = "Level";
 export const SKILL_YEARS_LABEL = "Experience";
 /** Key hint under the skill list (hidden from screen readers; the buttons say the same). */
 export const SKILLS_KEY_HINT = "↑ ↓ choose a skill";
+
+/** The Projects panel's list of projects (back side). */
+export const PROJECTS_LIST_LABEL = "Projects";
+/** Key hint under the project list (hidden from screen readers; the buttons say the same). */
+export const PROJECTS_KEY_HINT = "↑ ↓ choose a project";
+/** Label of a project's tag list. */
+export const PROJECT_TAGS_LABEL = "Tags";
+/** The link to the hosted project. */
+export const PROJECT_LINK_LABEL = "Open project";
+/** Said after the link text, so screen reader users know a tab will open. */
+export const NEW_TAB_NOTE = "(opens in a new tab)";
+/** Alt text of a project's screenshot. */
+export function projectThumbnailAlt(title: string): string {
+  return `Screenshot of ${title}`;
+}
