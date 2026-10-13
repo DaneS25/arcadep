@@ -13,6 +13,8 @@ import {
   cabinetLayout,
   glowGeometryData,
   screenViewPose,
+  toLocal,
+  toWorld,
 } from "./cabinetLayout";
 import {
   CAMERA,
@@ -164,5 +166,21 @@ describe("glowGeometryData", () => {
       0,
       marquee.vMax,
     ]);
+  });
+});
+
+describe("toLocal", () => {
+  it("undoes toWorld on every side", () => {
+    for (const spot of interactionSpots())
+      for (const [across, up, out] of [
+        [0, 0, 0],
+        [1.2, 0.4, 0.05],
+        [-2, 2.5, -0.3],
+      ] as const) {
+        const local = toLocal(spot, toWorld(spot, across, up, out));
+        expect(local.across).toBeCloseTo(across, 9);
+        expect(local.up).toBeCloseTo(up, 9);
+        expect(local.out).toBeCloseTo(out, 9);
+      }
   });
 });

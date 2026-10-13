@@ -7,7 +7,8 @@
  */
 
 import type { Box, InteractionSpot, Side, Vec3 } from "./buildingLayout";
-import { sideNormal } from "./buildingLayout";
+import { sideAzimuthRad, sideNormal } from "./buildingLayout";
+import type { CameraPose } from "./cameraOrbit";
 import { spotFor, toWorld, worldBox, type GlowQuad } from "./cabinetLayout";
 import type { PaletteToken } from "./palette";
 
@@ -162,6 +163,37 @@ export function skillSignsLayout(
     atlas: {
       widthPx: SIGN_TEXTURE.cellWidthPx,
       heightPx: SIGN_TEXTURE.cellHeightPx * Math.max(1, n),
+    },
+  };
+}
+
+/**
+ * How the camera frames the sign cluster while the Skills panel is open (task 14): straight
+ * on from the street, a little above the cluster's centre, close enough that the 5 x 3 m
+ * spot fills about half a 50° view on a wide window. The view is aimed `offsetAcrossM` to
+ * the right of the cluster, so the cluster sits left of centre, clear of the panel, which
+ * docks to the right on wide windows.
+ */
+export const SIGNS_VIEW = {
+  polarRad: (84 * Math.PI) / 180,
+  distanceM: 6,
+  offsetAcrossM: 1.4,
+} as const;
+
+/** Where the camera stops to look at the sign cluster. */
+export function signsViewPose(side: Side = SIGNS_SIDE): CameraPose {
+  const spot = spotFor(side);
+  return {
+    target: toWorld(
+      spot,
+      SIGNS_VIEW.offsetAcrossM,
+      spot.size.y / 2,
+      spot.size.z,
+    ),
+    orbit: {
+      azimuthRad: sideAzimuthRad(side),
+      polarRad: SIGNS_VIEW.polarRad,
+      distanceM: SIGNS_VIEW.distanceM,
     },
   };
 }

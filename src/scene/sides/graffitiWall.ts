@@ -7,11 +7,13 @@ import {
   SRGBColorSpace,
 } from "three";
 import type { Project } from "@/content/types";
+import type { Vec3 } from "@/logic/buildingLayout";
 import { FONTS, fontStack } from "@/logic/assetManifest";
 import {
   GRAFFITI_TEXTURE,
   atlasQuadGeometryData,
   graffitiLayout,
+  posterAt,
   type PixelRect,
 } from "@/logic/graffitiLayout";
 import { TAG_SEED, graffitiTags, type TagSpec } from "@/logic/graffitiTags";
@@ -32,6 +34,11 @@ export type Thumbnails = ReadonlyMap<string, HTMLImageElement>;
 
 export type GraffitiWall = {
   readonly object: Group;
+  /**
+   * The project whose poster is at a world point on the wall (a picking hit), as an index
+   * into the projects given, or undefined between posters.
+   */
+  posterAt(point: Vec3): number | undefined;
   setHighlighted(on: boolean): void;
   /** Puts the loaded thumbnails on the posters and redraws. */
   setThumbnails(thumbnails: Thumbnails): void;
@@ -318,6 +325,8 @@ export function createGraffitiWall(
 
   return {
     object: group,
+    // Posters show the first projects in order, so a poster's index is its project's.
+    posterAt: (point) => posterAt(layout, point),
     setHighlighted(on) {
       material.emissiveIntensity = on
         ? GRAFFITI_LOOK.litEmissiveIntensity

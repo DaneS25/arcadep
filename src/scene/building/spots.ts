@@ -1,5 +1,9 @@
 import { Group, type Object3D } from "three";
-import { interactionSpots, type InteractionSpot } from "@/logic/buildingLayout";
+import {
+  interactionSpots,
+  type InteractionSpot,
+  type Vec3,
+} from "@/logic/buildingLayout";
 import { createCabinet, type AttractInfo } from "../sides/cabinet";
 import { createDoorTerminal } from "../sides/doorTerminal";
 import {
@@ -21,6 +25,8 @@ export type InteractionSpots = {
   markers: readonly SpotMarker[];
   /** Lights up one marker (hovered or focused), or none. */
   setHighlighted(id: SpotMarker["id"] | undefined): void;
+  /** The project whose poster is at a world point on the graffiti wall, if any. */
+  posterAt(point: Vec3): number | undefined;
   /** Puts the loaded project thumbnails on the graffiti wall's posters. */
   setThumbnails(thumbnails: Thumbnails): void;
   /** Runs the props' own animation (the cabinet's attract screen, the signs' flicker). */
@@ -79,6 +85,9 @@ export function createInteractionSpots(
       signs.setHighlighted(id === "spot-left");
       graffiti.setHighlighted(id === "spot-back");
       terminal.setHighlighted(id === "spot-right");
+    },
+    posterAt(point) {
+      return graffiti.posterAt(point);
     },
     setThumbnails(thumbnails) {
       graffiti.setThumbnails(thumbnails);

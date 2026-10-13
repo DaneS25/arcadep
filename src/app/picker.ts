@@ -1,6 +1,10 @@
 import { Raycaster, Vector2, type Camera, type Object3D } from "three";
+import type { Vec3 } from "@/logic/buildingLayout";
 import type { InteractiveId } from "@/logic/interactiveIds";
 import type { ScreenPoint } from "@/logic/pointer";
+
+/** A pick: the registered id and the world point the ray hit on it. */
+export type PickHit = { readonly id: InteractiveId; readonly point: Vec3 };
 
 export type Picker = {
   /** Adds an object (and its children) that picking reports as `id`. */
@@ -9,6 +13,8 @@ export type Picker = {
   addOccluders(objects: readonly Object3D[]): void;
   /** The registered id under `ndc`, if the nearest hit is a registered object. */
   pick(ndc: ScreenPoint, camera: Camera): InteractiveId | undefined;
+  /** As `pick`, with the world point hit (which poster on the graffiti wall, say). */
+  pickHit(ndc: ScreenPoint, camera: Camera): PickHit | undefined;
   dispose(): void;
 };
 
@@ -31,6 +37,17 @@ export function createPicker(): Picker {
     return undefined;
   };
 
+  const pickHit = (ndc: ScreenPoint, camera: Camera): PickHit | undefined => {
+    pointer.set(ndc.x, ndc.y);
+    raycaster.setFromCamera(pointer, camera);
+    const [nearest] = raycaster.intersectObjects(targets, true);
+    if (nearest === undefined) return undefined;
+    const id = idOf(nearest.object);
+    if (id === undefined) return undefined;
+    const { x, y, z } = nearest.point;
+    return { id, point: { x, y, z } };
+  };
+
   return {
     register(id, object) {
       ids.set(object, id);
@@ -40,11 +57,9 @@ export function createPicker(): Picker {
       targets.push(...objects);
     },
     pick(ndc, camera) {
-      pointer.set(ndc.x, ndc.y);
-      raycaster.setFromCamera(pointer, camera);
-      const [nearest] = raycaster.intersectObjects(targets, true);
-      return nearest === undefined ? undefined : idOf(nearest.object);
+      return pickHit(ndc, camera)?.id;
     },
+    pickHit,
     dispose() {
       ids.clear();
       targets.length = 0;

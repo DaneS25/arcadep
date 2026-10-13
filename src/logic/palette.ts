@@ -33,6 +33,8 @@ export const PALETTE = {
   posterPaper: "#d8d0bf",
   /** Door terminal housing and the side door (right side). */
   terminal: "#1a1a22",
+  /** Detail props (AC units, pipes, vents, sign plates) before the metal texture arrives. */
+  prop: "#4a4c58",
 } as const;
 
 export type PaletteToken = keyof typeof PALETTE;

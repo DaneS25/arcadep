@@ -164,6 +164,42 @@ export const TERMINAL_LOOK = {
   litEmissiveIntensity: 2.4,
 } as const;
 
+/**
+ * The detail props (task 14): rusty painted metal (the `metal` slot) shaded per part, with
+ * the sign faces lit through the emissive atlas. The signs' text is bright enough to bloom;
+ * the puddles' dim reflection patch and every plain part stay under the bloom threshold.
+ */
+export const DETAILS_LOOK = {
+  surface: {
+    slot: "metal",
+    fallback: "prop",
+    tint: "#8a8a96",
+    tileM: 1,
+    roughness: 0.6,
+    metalness: 0.5,
+    envMapIntensity: 0.8,
+  } satisfies SurfaceLook,
+  /** Grey shade per kind of part, multiplying the metal. */
+  shades: {
+    metal: 1,
+    plate: 0.35,
+    cable: 0.08,
+    // About the street's own colour, so a puddle is a smear of reflected neon, not a hole.
+    puddle: 0.3,
+    face: 0,
+  },
+  emissiveIntensity: 1.4,
+  /**
+   * A thin, pale, hot line down each letter of the signs, drawn over the coloured glow:
+   * only it blooms, so the words stay readable.
+   */
+  signCore: "#ffe4e8",
+  /** The neon colour each sign's glow is drawn in. */
+  signColors: { rooftop: "accent", cafe: "cyan", arcade: "amber" },
+  /** The puddles' faint reflection of the neon: dim red and cyan, far under the bloom. */
+  puddleGlow: ["#2a080d", "#04191d"],
+} as const;
+
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */
 export const BLOOM = {
   strength: 1.2,

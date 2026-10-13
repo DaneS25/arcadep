@@ -7,6 +7,7 @@ import {
   POSTER_SIZES,
   atlasQuadGeometryData,
   graffitiLayout,
+  posterAt,
   posterCell,
   rectUv,
   tiltedHalfExtents,
@@ -174,5 +175,59 @@ describe("atlasQuadGeometryData", () => {
     // The first poster's bottom-left and top-right uvs.
     expect(data.uvs.slice(8, 10)).toEqual([poster.uMin, poster.vMin]);
     expect(data.uvs.slice(12, 14)).toEqual([poster.uMax, poster.vMax]);
+  });
+});
+
+describe("posterAt", () => {
+  const layout = graffitiLayout(5, 42);
+
+  it("finds each poster from a hit at its centre and near its corners", () => {
+    layout.posters.forEach((poster, i) => {
+      expect(posterAt(layout, poster.centre)).toBe(i);
+      for (const corner of poster.quad.corners) {
+        // A little in from the corner, towards the centre.
+        const p = {
+          x: corner.x + (poster.centre.x - corner.x) * 0.05,
+          y: corner.y + (poster.centre.y - corner.y) * 0.05,
+          z: corner.z,
+        };
+        expect(posterAt(layout, p)).toBe(i);
+      }
+    });
+  });
+
+  it("finds nothing on the bare wall between and above the posters", () => {
+    const spot = backSpot();
+    const [first, second] = layout.posters;
+    if (first === undefined || second === undefined) throw new Error("posters");
+    const between = {
+      x: (first.centre.x + second.centre.x) / 2,
+      y: first.centre.y,
+      z: first.centre.z,
+    };
+    expect(posterAt(layout, between)).toBeUndefined();
+    expect(
+      posterAt(layout, { ...first.centre, y: spot.position.y + 1.4 }),
+    ).toBeUndefined();
+  });
+
+  it("follows each poster's tilt", () => {
+    const tilted = layout.posters.find(
+      (p) => Math.abs(p.tiltRad) > POSTER_SIZES.maxTiltRad / 3,
+    );
+    if (tilted === undefined) throw new Error("no tilted poster");
+    const i = layout.posters.indexOf(tilted);
+    // Just inside the tilted top-right corner, which an untilted box test can miss.
+    const [, , topRight] = tilted.quad.corners;
+    const p = {
+      x: topRight.x + (tilted.centre.x - topRight.x) * 0.02,
+      y: topRight.y + (tilted.centre.y - topRight.y) * 0.02,
+      z: topRight.z,
+    };
+    expect(posterAt(layout, p)).toBe(i);
+  });
+
+  it("finds nothing on a wall with no posters", () => {
+    expect(posterAt(graffitiLayout(0, 1), backSpot().position)).toBeUndefined();
   });
 });
