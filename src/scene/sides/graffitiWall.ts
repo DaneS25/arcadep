@@ -17,8 +17,13 @@ import {
   graffitiLayout,
   posterAt,
   posterGlowScale,
+  WEATHER_COLORS,
   posterVertexFlags,
+  sillDrips,
+  weatherStreaks,
   type PixelRect,
+  type SillDrip,
+  type WeatherStreak,
 } from "@/logic/graffitiLayout";
 import {
   TAG_SEED,
@@ -84,6 +89,63 @@ function drawBuff(
   ctx.fillStyle = PALETTE.base;
   for (let y = -h / 2; y < h / 2; y += 24) ctx.fillRect(-w / 2, y, w, 6);
   ctx.restore();
+}
+
+/** A colour with an alpha, from a `#rrggbb` hex. */
+function withAlpha(hex: string, alpha: number): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return `rgba(${String((n >> 16) & 255)}, ${String((n >> 8) & 255)}, ${String(n & 255)}, ${String(alpha)})`;
+}
+
+/** Rain and rust run down over the paint only (`source-atop` keeps the gaps clear). */
+function drawWeather(
+  ctx: CanvasRenderingContext2D,
+  streaks: readonly WeatherStreak[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  for (const { rect, color, strength } of streaks) {
+    const gradient = ctx.createLinearGradient(
+      0,
+      rect.y + rect.height,
+      0,
+      rect.y,
+    );
+    gradient.addColorStop(0, withAlpha(color, strength));
+    gradient.addColorStop(1, withAlpha(color, 0));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  }
+  ctx.restore();
+}
+
+/** A stain spreading down from a sill, with paint run off it. */
+function drawSillDrip(ctx: CanvasRenderingContext2D, drip: SillDrip): void {
+  const { stain } = drip;
+  const gradient = ctx.createLinearGradient(
+    0,
+    stain.y,
+    0,
+    stain.y + stain.height,
+  );
+  gradient.addColorStop(0, withAlpha(WEATHER_COLORS.sill, 0.9));
+  gradient.addColorStop(0.3, withAlpha(WEATHER_COLORS.sill, 0.55));
+  gradient.addColorStop(1, withAlpha(WEATHER_COLORS.sill, 0));
+  ctx.fillStyle = gradient;
+  ctx.fillRect(stain.x, stain.y, stain.width, stain.height);
+  for (const run of drip.runs) {
+    ctx.strokeStyle = run.color;
+    ctx.fillStyle = run.color;
+    ctx.lineWidth = run.widthPx;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(run.x, run.y);
+    ctx.lineTo(run.x, run.y + run.lengthPx);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(run.x, run.y + run.lengthPx, run.widthPx * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawDrips(
@@ -333,6 +395,8 @@ export function createGraffitiWall(
   );
   const shown = projects.slice(0, layout.posters.length);
   const art = graffitiArt(TAG_SEED);
+  const weather = weatherStreaks(layout);
+  const drips = sillDrips(layout);
   let thumbnails: Thumbnails = new Map();
 
   const canvas = doc.createElement("canvas");
@@ -424,9 +488,12 @@ export function createGraffitiWall(
     for (const buff of art.buffs) drawBuff(ctx, layout.wallRect, buff);
     for (const tag of art.tags)
       drawTag(ctx, layout.wallRect, tag, fonts.marker);
-    // The windows' glass stays clean: the paint stops at their frames (task 20).
+    // Weathered paint, then the windows' glass wiped clean (the paint stops at their
+    // frames, task 20), then the stains and paint runs under a few sills (task 22).
+    drawWeather(ctx, weather);
     for (const r of layout.clearRects)
       ctx.clearRect(r.x, r.y, r.width, r.height);
+    for (const drip of drips) drawSillDrip(ctx, drip);
     shown.forEach((project, i) => {
       const poster = layout.posters[i];
       if (poster === undefined) return;

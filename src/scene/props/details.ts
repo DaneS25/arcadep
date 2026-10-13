@@ -38,6 +38,10 @@ import {
   flickeringPanes,
   withWindows,
 } from "@/logic/windowLayout";
+import { PROP_GRIME } from "@/logic/grimeLayout";
+import { detailWearAttributes } from "@/logic/wearLayout";
+import { STICKER_TILE } from "@/logic/wearLayout";
+import { addGrime, createPropGrime, createStickerTile } from "../grime";
 import { fitFont, glowText } from "../sides/canvasText";
 import { drawWindowCell } from "./windowCells";
 
@@ -215,6 +219,29 @@ export function createDetails(
     emissiveMap: atlas,
     emissiveIntensity: DETAILS_LOOK.emissiveIntensity,
   });
+  // Rust and wear (task 22): a repeating tile read through the metal's UVs, which are in
+  // tiles of `look.tileM` metres, scaled to the grime tile's size.
+  // Stickers and worn edges on the sign boxes, AC units and doors (task 22 review).
+  const grime = createPropGrime(doc);
+  const stickerTile = createStickerTile(doc);
+  const wear = detailWearAttributes(layout, data.positions.length / 3);
+  geometry.setAttribute("faceUv", new Float32BufferAttribute(wear.faceUvs, 2));
+  geometry.setAttribute(
+    "faceSize",
+    new Float32BufferAttribute(wear.faceSizes, 2),
+  );
+  geometry.setAttribute(
+    "sticker",
+    new Float32BufferAttribute(wear.stickers, 1),
+  );
+  addGrime(material, {
+    grime,
+    source: { kind: "uv", scale: look.tileM / PROP_GRIME.tileM },
+    wear: {
+      stickers: stickerTile.texture,
+      scale: look.tileM / STICKER_TILE.tileM,
+    },
+  });
   const apply = (params: SurfaceMaterialParams<Texture>): void => {
     material.color.set(params.color);
     material.map = params.map;
@@ -277,6 +304,8 @@ export function createDetails(
       geometry.dispose();
       material.dispose();
       atlas.dispose();
+      grime.dispose();
+      stickerTile.dispose();
       canvas.width = 0;
       canvas.height = 0;
     },

@@ -8,6 +8,7 @@ import {
   roofBoxes,
   sidewalkBox,
 } from "@/logic/buildingLayout";
+import { createWallGrime } from "../grime";
 import { createSurface } from "../surface";
 import {
   createInteractionSpots,
@@ -30,15 +31,23 @@ export type Building = {
 /**
  * The building on its street corner: three floors and the alley wall (one merged wall
  * surface), floor bands, roof and parapets (one merged trim surface), the pavement and
- * each side's interactive prop. Three draw calls plus the props.
+ * each side's interactive prop. Three draw calls plus the props. The walls and trim share
+ * one generated grime atlas (task 22): streaks, stains, cracks, chips and rust runs.
  */
 export function createBuilding(content: SpotsContent): Building {
+  const grime = createWallGrime();
   const walls = createSurface(
     "wall",
     [...floorBoxes(), alleyWallBox()],
     "walls",
+    grime,
   );
-  const trim = createSurface("trim", [...bandBoxes(), ...roofBoxes()], "trim");
+  const trim = createSurface(
+    "trim",
+    [...bandBoxes(), ...roofBoxes()],
+    "trim",
+    grime,
+  );
   const sidewalk = createSurface("sidewalk", [sidewalkBox()], "sidewalk");
   const surfaces = [walls, trim, sidewalk];
 
@@ -60,6 +69,7 @@ export function createBuilding(content: SpotsContent): Building {
       group.clear();
       spots.dispose();
       for (const surface of surfaces) surface.dispose();
+      grime.dispose();
     },
   };
 }

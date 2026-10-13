@@ -21,9 +21,17 @@ import {
   posterCell,
   posterGlowScale,
   posterVertexFlags,
+  SILL_DRIP_COLORS,
+  SILL_DRIP_WINDOWS,
+  WEATHER_COLORS,
   rectUv,
+  sillDrips,
   tiltedHalfExtents,
+  wallPixelRect,
+  weatherStreaks,
 } from "./graffitiLayout";
+import { WINDOW } from "./buildingLayout";
+import { PALETTE } from "./palette";
 
 const EPS = 1e-9;
 
@@ -362,5 +370,90 @@ describe("clearRects", () => {
       ).toBe(false);
     for (const poster of layout.posters)
       expect(inside(poster.across, poster.centre.y)).toBe(false);
+  });
+});
+
+describe("weathering on the paint (task 22)", () => {
+  const layout = graffitiLayout(3, 1);
+
+  it("runs the wall's water streaks and rust runs over the tag layer", () => {
+    const streaks = weatherStreaks(layout);
+    expect(streaks.length).toBeGreaterThan(10);
+    const w = layout.wallRect;
+    for (const { rect, color, strength } of streaks) {
+      expect(rect.x).toBeGreaterThanOrEqual(w.x);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(w.x + w.width);
+      expect(rect.y).toBeGreaterThanOrEqual(w.y);
+      expect(rect.y + rect.height).toBeLessThanOrEqual(w.y + w.height);
+      expect([WEATHER_COLORS.water, WEATHER_COLORS.rust]).toContain(color);
+      expect(strength).toBeGreaterThan(0);
+      expect(strength).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("puts stains and paint drips under a few of the back windows' sills", () => {
+    const drips = sillDrips(layout);
+    const backWindows = wallOpenings().filter(
+      (o) => o.side === "back" && o.kind === "window",
+    );
+    expect(drips).toHaveLength(Math.min(SILL_DRIP_WINDOWS, backWindows.length));
+    expect(drips.length).toBeGreaterThanOrEqual(3);
+    for (const drip of drips) {
+      // Each stain hangs from one back window's sill, as wide as the sill.
+      const under = backWindows.find((o) => {
+        const sill = wallPixelRect(layout.spot, layout.wallRect, {
+          side: "back",
+          minAlong: o.alongM - o.widthM / 2 - WINDOW.sillOverhangM,
+          maxAlong: o.alongM + o.widthM / 2 + WINDOW.sillOverhangM,
+          minY: o.bottomY - WINDOW.sillHeightM - 0.01,
+          maxY: o.bottomY - WINDOW.sillHeightM,
+        });
+        return (
+          Math.abs(sill.y - drip.stain.y) <= 1 &&
+          sill.x === drip.stain.x &&
+          sill.width === drip.stain.width
+        );
+      });
+      expect(under).toBeDefined();
+      expect(drip.stain.height).toBeGreaterThan(0);
+      expect(drip.runs.length).toBeGreaterThanOrEqual(2);
+      for (const run of drip.runs) {
+        expect(run.y).toBe(drip.stain.y);
+        expect(run.x).toBeGreaterThanOrEqual(drip.stain.x);
+        expect(run.x).toBeLessThanOrEqual(drip.stain.x + drip.stain.width);
+        expect(run.lengthPx).toBeGreaterThan(0);
+        expect([
+          ...SILL_DRIP_COLORS.map((token) => PALETTE[token]),
+          WEATHER_COLORS.rust,
+        ]).toContain(run.color);
+      }
+    }
+    expect(sillDrips(layout)).toEqual(drips);
+  });
+
+  it("keeps the drips off the windows' glass, which stays clean", () => {
+    for (const drip of sillDrips(layout))
+      for (const r of layout.clearRects) {
+        const overlaps =
+          drip.stain.x < r.x + r.width &&
+          r.x < drip.stain.x + drip.stain.width &&
+          drip.stain.y < r.y + r.height &&
+          r.y < drip.stain.y + drip.stain.height;
+        if (overlaps)
+          expect(drip.stain.y).toBeGreaterThanOrEqual(r.y + r.height - 1);
+      }
+  });
+
+  it("has no pale run and no yellow or amber weathering colour", () => {
+    expect(SILL_DRIP_COLORS).not.toContain("text");
+    for (const hex of Object.values(WEATHER_COLORS)) {
+      const n = Number.parseInt(hex.slice(1), 16);
+      const r = (n >> 16) & 255;
+      const g = (n >> 8) & 255;
+      const b = n & 255;
+      // Dark red-brown at most: green never above red's share towards yellow.
+      expect(g).toBeLessThanOrEqual(r);
+      expect((g - b) / Math.max(1, r - b)).toBeLessThan(0.25);
+    }
   });
 });

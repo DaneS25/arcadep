@@ -199,6 +199,32 @@ test.describe("camera navigation", () => {
     await page.screenshot({ path: "test-results/windows-right.png" });
   });
 
+  test("close-ups of the weathered walls stay within the draw-call budget", async ({
+    page,
+  }) => {
+    // Zooming with the wheel renders slowly in headless Chromium.
+    test.slow();
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+
+    // Grime, streaks, cracks, chips and rust runs (task 22) are drawn into the walls',
+    // trim's and props' existing materials, so they add no draw call.
+    for (const side of ["right", "back", "left", "front"]) {
+      await page.keyboard.press("ArrowRight");
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.4);
+      for (let i = 0; i < 3; i += 1) await page.mouse.wheel(0, -600);
+      await page.waitForTimeout(500);
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+      await page.screenshot({ path: `test-results/grime-${side}.png` });
+    }
+  });
+
   test("dragging with the mouse takes the camera off the side views", async ({
     page,
   }) => {
