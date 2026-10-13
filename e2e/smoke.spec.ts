@@ -123,17 +123,59 @@ test.describe("camera navigation", () => {
   });
 });
 
+type Box = { x: number; y: number; width: number; height: number };
+
+/** Root font size in the panel CSS (rem); the panel's min and max heights are 18rem and 32rem. */
+const REM = 16;
+const PANEL_GAP = 2.5 * REM;
+
+/**
+ * Every panel opens centred on the window at the same width (task 18), with a height that
+ * fits its content between min(18rem, window - 2.5rem) and min(32rem, window - 2.5rem).
+ */
+function expectCentredAndFitting(
+  boxes: ReadonlyMap<string, Box | null>,
+  viewport: { width: number; height: number } | null,
+): void {
+  expect(viewport).not.toBeNull();
+  const first = [...boxes.values()][0];
+  for (const box of boxes.values()) {
+    expect(box).not.toBeNull();
+    if (box === null || first === null || first === undefined || !viewport)
+      continue;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(
+      2,
+    );
+    expect(Math.abs(box.y + box.height / 2 - viewport.height / 2)).toBeLessThan(
+      2,
+    );
+    expect(Math.abs(box.width - first.width)).toBeLessThan(2);
+    const minHeight = Math.min(18 * REM, viewport.height - PANEL_GAP);
+    const maxHeight = Math.min(32 * REM, viewport.height - PANEL_GAP);
+    expect(box.height).toBeGreaterThanOrEqual(minHeight - 1);
+    expect(box.height).toBeLessThanOrEqual(maxHeight + 1);
+  }
+}
+
 test.describe("interaction", () => {
   test.use({ reducedMotion: "reduce" });
 
   test("Tab picks each side, Enter opens it and Escape closes it", async ({
     page,
   }) => {
+    // Four sides, four panels and five screenshots with the user's textures loaded take
+    // about 40 s in headless (software) Chromium.
+    test.slow();
     await page.goto("/");
     await expect(page.locator("#loading-screen")).toBeHidden();
     const canvas = page.locator("canvas.scene");
     await expect(canvas).toHaveAttribute("data-app-state", "exploring");
 
+    const boxes = new Map<string, Box | null>();
     for (const side of ["front", "right", "back", "left"]) {
       await page.keyboard.press("Tab");
       await expect(canvas).toHaveAttribute("data-app-state", "focused");
@@ -160,6 +202,7 @@ test.describe("interaction", () => {
       await page.keyboard.press("Tab");
       await expect(panel.locator(":focus")).toHaveCount(1);
       await page.screenshot({ path: `test-results/panel-${side}.png` });
+      boxes.set(side, await panel.boundingBox());
 
       await page.keyboard.press("Escape");
       await expect(canvas).toHaveAttribute("data-app-state", "focused");
@@ -168,10 +211,39 @@ test.describe("interaction", () => {
       await expect(canvas).toBeFocused();
     }
     await page.screenshot({ path: "test-results/focused-left.png" });
+    expectCentredAndFitting(boxes, page.viewportSize());
 
     await page.keyboard.press("Escape");
     await expect(canvas).toHaveAttribute("data-app-state", "exploring");
     await expect(canvas).not.toHaveAttribute("data-app-side", /.*/);
+  });
+
+  test("every panel fits and stays centred on a narrow window", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 480, height: 640 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const panel = page.getByRole("dialog");
+    const boxes = new Map<string, Box | null>();
+    for (const side of ["front", "right", "back", "left"]) {
+      await page.keyboard.press("Tab");
+      await expect(canvas).toHaveAttribute("data-app-side", side);
+      await page.keyboard.press("Enter");
+      await expect(panel).toHaveAttribute("data-side", side);
+      await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
+      // Nothing inside spills sideways out of the panel.
+      const spill = await panel.evaluate(
+        (element) => element.scrollWidth - element.clientWidth,
+      );
+      expect(spill).toBeLessThanOrEqual(0);
+      await page.screenshot({ path: `test-results/narrow-panel-${side}.png` });
+      boxes.set(side, await panel.boundingBox());
+      await page.keyboard.press("Escape");
+      await expect(panel).toBeHidden();
+    }
+    expectCentredAndFitting(boxes, page.viewportSize());
   });
 
   test("the arrow keys pick a side too, and Tab lets focus leave after the last side", async ({
@@ -494,10 +566,11 @@ test.describe("right: door terminal", () => {
     await expect(panel).toHaveAttribute("data-side", "right");
     const input = panel.getByRole("textbox", { name: "Command" });
     await expect(input).toBeFocused();
-    // Full screen: the terminal covers the whole window.
+    // Centred, not full screen (task 18): the full panel height, so the log has room.
     const box = await panel.boundingBox();
-    expect(box?.width).toBe(1280);
-    expect(box?.height).toBe(800);
+    expect(box?.width).toBeLessThan(1280);
+    expect(box?.height).toBeLessThan(800);
+    expect(Math.abs((box?.height ?? 0) - 32 * REM)).toBeLessThan(2);
 
     const log = panel.getByRole("log");
     await input.fill("email");

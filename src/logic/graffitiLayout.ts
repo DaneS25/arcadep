@@ -305,13 +305,13 @@ export function posterAt(
  * How the camera frames the posters while the Projects panel is open (task 14). The alley
  * is only 4 m wide, so the camera hangs over it, above the alley wall's top, and looks down
  * at the row of posters; the tween in comes over the alley wall, not through it. Like the
- * signs' view, it is aimed `offsetAcrossM` to the right, so the posters sit left of the
- * panel, which docks to the right on wide windows.
+ * signs' view, it is aimed at the row's centre (`offsetAcrossM` 0, task 18), behind the
+ * centred panel.
  */
 export const POSTERS_VIEW = {
   polarRad: (37 * Math.PI) / 180,
   distanceM: 6.2,
-  offsetAcrossM: 1.4,
+  offsetAcrossM: 0,
 } as const;
 
 /** Where the camera stops to look at the posters: the centre of their row. */

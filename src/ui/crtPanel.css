@@ -3,11 +3,6 @@
  * on the base surface; the scanlines are faint enough not to change that.
  */
 
-.panel[data-side="front"]::backdrop {
-  /* Lighter than the other panels, so the cabinet's glowing screen shows round the edges. */
-  background: rgb(7 7 11 / 45%);
-}
-
 .crt {
   display: flex;
   flex-direction: column;

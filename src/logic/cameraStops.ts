@@ -2,7 +2,7 @@
  * Where the camera can be sent: a side's view of the building, or a close-up of a side's
  * prop (the cabinet's screen, task 10; the neon signs and the posters, task 14). Also
  * decides, from a change of app mode, where the camera should go. The right side has no
- * close-up: its terminal goes full screen.
+ * close-up: the terminal's jack-in is the effect there.
  */
 
 import type { AppMode } from "./appState";

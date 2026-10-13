@@ -170,14 +170,14 @@ export function skillSignsLayout(
 /**
  * How the camera frames the sign cluster while the Skills panel is open (task 14): straight
  * on from the street, a little above the cluster's centre, close enough that the 5 x 3 m
- * spot fills about half a 50° view on a wide window. The view is aimed `offsetAcrossM` to
- * the right of the cluster, so the cluster sits left of centre, clear of the panel, which
- * docks to the right on wide windows.
+ * spot fills about half a 50° view on a wide window. The view is aimed at the cluster's
+ * centre (`offsetAcrossM` 0, task 18), like the cabinet's: every panel opens centred, so the
+ * signs frame the panel and glow round its edges.
  */
 export const SIGNS_VIEW = {
   polarRad: (84 * Math.PI) / 180,
   distanceM: 6,
-  offsetAcrossM: 1.4,
+  offsetAcrossM: 0,
 } as const;
 
 /** Where the camera stops to look at the sign cluster. */

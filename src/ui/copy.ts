@@ -78,7 +78,7 @@ export function projectThumbnailAlt(title: string): string {
 /** The door terminal's screen in the scene (right side). */
 export const TERMINAL_SCREEN_PROMPT = "> JACK IN_";
 export const TERMINAL_SCREEN_LABEL = "CONTACT";
-/** The full-screen terminal: prompt sign, input label and the command list. */
+/** The terminal panel: prompt sign, input label and the command list. */
 export const TERMINAL_PROMPT = "guest@arcade:~$";
 export const TERMINAL_INPUT_LABEL = "Command";
 export const TERMINAL_OUTPUT_LABEL = "Terminal output";

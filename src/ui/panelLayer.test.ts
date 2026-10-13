@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppMode } from "@/logic/appState";
 import { SIDES, type Side } from "@/logic/buildingLayout";
 import { PANEL_PLACEHOLDER, PANEL_TITLES } from "./copy";
+import crtCss from "./crtPanel.css?raw";
+import panelCss from "./panelLayer.css?raw";
+import projectCss from "./projectPanel.css?raw";
+import skillCss from "./skillPanel.css?raw";
+import terminalCss from "./terminalPanel.css?raw";
 import {
   createPanelLayer,
   PANEL_TITLE_ID,
@@ -299,5 +304,56 @@ describe("createPanelLayer", () => {
     expect(dialog.open).toBe(false);
     closeButton(dialog).click();
     expect(onCloseRequest).not.toHaveBeenCalled();
+  });
+});
+
+/** Each rule's selector and declarations, comments dropped (nested at-rules flattened). */
+function rules(css: string): { selector: string; body: string }[] {
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  return [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selector: (m[1] ?? "").trim(),
+    body: m[2] ?? "",
+  }));
+}
+
+describe("panel styles (task 18: every panel opens centred, the same way and size)", () => {
+  const SIDE_CSS = { crtCss, skillCss, projectCss, terminalCss };
+  const LAYOUT =
+    /(^|[;\s])(width|max-width|min-width|height|max-height|min-height|margin[\w-]*|inset|position|top|left|right|bottom|transform)\s*:/;
+
+  it("sizes and centres the dialog once, fitting a narrow or short window", () => {
+    const base = rules(panelCss).find((r) => r.selector === ".panel");
+    expect(base?.body).toMatch(
+      /(^|[;\s])width:\s*min\(var\(--panel-width\), calc\(100vw/,
+    );
+    // The height fits the content between a minimum and a maximum, both capped by the window.
+    expect(base?.body).toMatch(
+      /min-height:\s*min\(var\(--panel-min-height\), calc\(100vh/,
+    );
+    expect(base?.body).toMatch(
+      /max-height:\s*min\(var\(--panel-height\), calc\(100vh/,
+    );
+    expect(base?.body).not.toMatch(/(^|[;\s])height\s*:/);
+    expect(base?.body).toMatch(/margin:\s*auto/);
+  });
+
+  it.each(Object.entries(SIDE_CSS))(
+    "%s never moves or resizes the dialog for its side",
+    (_name, css) => {
+      const own = rules(css).filter((r) =>
+        /^\.panel\[data-side="\w+"\](\[open\])?(::backdrop)?$/.test(r.selector),
+      );
+      for (const rule of own) expect(rule.body).not.toMatch(LAYOUT);
+      expect(css).not.toMatch(/100vw|100vh/);
+    },
+  );
+
+  it("keeps the terminal's jack-in, only when motion is allowed", () => {
+    const motion = terminalCss.indexOf(
+      "@media (prefers-reduced-motion: no-preference)",
+    );
+    expect(motion).toBeGreaterThanOrEqual(0);
+    expect(terminalCss.indexOf("animation: jack-in")).toBeGreaterThan(motion);
+    expect(terminalCss).not.toContain("prefers-reduced-motion: reduce");
   });
 });
