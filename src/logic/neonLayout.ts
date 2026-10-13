@@ -10,8 +10,8 @@ import {
   type Side,
 } from "./buildingLayout";
 
-/** Which palette token a neon tube glows in: red is the main accent, cyan and amber the secondary ones. */
-export type NeonColor = "accent" | "cyan" | "amber";
+/** Which palette token a neon tube glows in: red is the main accent, cyan and deep purple the secondary ones. */
+export type NeonColor = "accent" | "cyan" | "purple";
 
 export type NeonStrip = {
   readonly name: string;
@@ -83,7 +83,7 @@ function corner(
 /**
  * The building's neon tubes: red lines under the floor bands and up the front corners,
  * a red line along the front parapet, plus cyan over the side door and on the left, and
- * amber along the top of the alley wall. One draw call in the scene (instanced).
+ * purple along the top of the alley wall. One draw call in the scene (instanced).
  */
 export function neonStrips(): NeonStrip[] {
   const [ground, first] = floorLevels();
@@ -138,7 +138,7 @@ export function neonStrips(): NeonStrip[] {
     ),
     horizontal(
       "alley-wall-top",
-      "amber",
+      "purple",
       "back",
       -halfW - STREET.alleyWallOverrunM + 0.2,
       halfW + STREET.alleyWallOverrunM - 0.2,

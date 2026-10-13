@@ -112,7 +112,7 @@
 
 .skills__group {
   margin: var(--space-1) 0 var(--space-2);
-  color: var(--color-amber, #ffb000);
+  color: var(--color-violet, #a875ff);
   font-size: 0.8125rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;

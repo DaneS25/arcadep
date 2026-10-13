@@ -73,10 +73,10 @@
 .projects__detail {
   min-height: 12rem;
   padding: var(--space-3);
-  border: 2px dashed rgb(255 176 0 / 45%);
+  border: 2px dashed rgb(168 117 255 / 45%);
   border-radius: 0.25rem;
   background: var(--color-base, #07070b);
-  box-shadow: 0 0 1.5rem rgb(255 176 0 / 10%);
+  box-shadow: 0 0 1.5rem rgb(168 117 255 / 10%);
 }
 
 .projects__thumbnail {
@@ -108,9 +108,9 @@
 
 .projects__tags li {
   padding: 0 var(--space-1);
-  border: 1px solid var(--color-amber, #ffb000);
+  border: 1px solid var(--color-violet, #a875ff);
   border-radius: var(--radius);
-  color: var(--color-amber, #ffb000);
+  color: var(--color-violet, #a875ff);
   font-size: 0.8125rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;

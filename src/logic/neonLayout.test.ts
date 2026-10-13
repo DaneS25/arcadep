@@ -44,7 +44,7 @@ describe("neonStrips", () => {
     const red = strips.filter((s) => s.color === "accent").length;
     expect(red).toBeGreaterThan(strips.length / 2);
     expect(strips.some((s) => s.color === "cyan")).toBe(true);
-    expect(strips.some((s) => s.color === "amber")).toBe(true);
+    expect(strips.some((s) => s.color === "purple")).toBe(true);
   });
 
   it("gives every tube the tube thickness across and a real length", () => {

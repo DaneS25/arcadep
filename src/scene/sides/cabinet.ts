@@ -81,7 +81,7 @@ function drawFaces(
 
   const row = (fraction: number): number => marqueeBottom + screenH * fraction;
   fitFont(ctx, info.name.toUpperCase(), mono, 44, w - 64);
-  glowText(ctx, info.name.toUpperCase(), w / 2, row(0.2), PALETTE.amber, 10);
+  glowText(ctx, info.name.toUpperCase(), w / 2, row(0.2), PALETTE.violet, 10);
   fitFont(ctx, info.title.toUpperCase(), mono, 26, w - 64);
   glowText(ctx, info.title.toUpperCase(), w / 2, row(0.34), PALETTE.cyan, 6);
   if (showPrompt) {

@@ -55,7 +55,7 @@ export const TAG_SIZES = {
 export const TAG_COLORS: readonly PaletteToken[] = [
   "accent",
   "cyan",
-  "amber",
+  "violet",
   "text",
 ];
 

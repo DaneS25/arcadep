@@ -50,7 +50,7 @@ function drawFaces(ctx: CanvasRenderingContext2D): void {
     TERMINAL_SCREEN_LABEL,
     w / 2,
     screenBottom * 0.32,
-    PALETTE.amber,
+    PALETTE.violet,
     6,
   );
   fitFont(ctx, TERMINAL_SCREEN_PROMPT, mono, 34, w - 4 * pad);

@@ -47,7 +47,7 @@ describe("overlay palette meets WCAG 2.2 AA", () => {
       PALETTE.muted,
       PALETTE.accent,
       PALETTE.cyan,
-      PALETTE.amber,
+      PALETTE.violet,
     ]) {
       expect(contrastRatio(ink, surface)).toBeGreaterThanOrEqual(AA_TEXT);
     }

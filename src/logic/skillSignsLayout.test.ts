@@ -100,7 +100,7 @@ describe("skill signs layout", () => {
       "accent",
       "accent",
       "cyan",
-      "amber",
+      "violet",
       "accent",
       "cyan",
     ]);
