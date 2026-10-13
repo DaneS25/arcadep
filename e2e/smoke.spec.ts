@@ -4,6 +4,7 @@ import { profile } from "../src/content/profile";
 import { projects } from "../src/content/projects";
 import { skills } from "../src/content/skills";
 import type { Vec3 } from "../src/logic/buildingLayout";
+import { pointOnSide } from "../src/logic/buildingLayout";
 import { posePosition, sidePose } from "../src/logic/cameraOrbit";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
 import { seedFromText } from "../src/logic/neonFlicker";
@@ -64,6 +65,54 @@ test("the built site loads without console errors", async ({ page }) => {
   // With an empty assets folder everything falls back and the loading screen still goes away.
   await expect(page.locator("#loading-screen")).toBeHidden();
   expect(errors).toEqual([]);
+});
+
+test("the neon, mono and marker fonts load and the loading screen, CRT and terminal use them", async ({
+  page,
+  request,
+}) => {
+  // The font files are the user's (untracked); without them everything falls back.
+  const files = ["Orbitron", "ShareTechMono", "PermanentMarker"];
+  for (const file of files) {
+    const response = await request.get(`/assets/fonts/${file}.ttf`);
+    const type = response.headers()["content-type"] ?? "";
+    test.skip(
+      !response.ok() || type.includes("html"),
+      `public/assets/fonts/${file}.ttf is not there`,
+    );
+  }
+  await page.goto("/");
+  await expect(page.locator("#loading-screen")).toBeHidden();
+
+  const result = await page.evaluate(() => {
+    const unquote = (family: string): string => family.replaceAll('"', "");
+    const loaded = [...document.fonts]
+      .filter((face) => face.status === "loaded")
+      .map((face) => unquote(face.family));
+    // The first family each overlay's text asks for.
+    const firstFamily = (className: string): string => {
+      const el = document.createElement("div");
+      el.className = className;
+      document.body.append(el);
+      const family = unquote(
+        getComputedStyle(el).fontFamily.split(",")[0] ?? "",
+      );
+      el.remove();
+      return family.trim();
+    };
+    return {
+      loaded,
+      loadingScreen: firstFamily("loading-screen"),
+      crt: firstFamily("crt"),
+      terminal: firstFamily("terminal"),
+    };
+  });
+  expect(result.loaded).toEqual(
+    expect.arrayContaining(["Orbitron", "Share Tech Mono", "Permanent Marker"]),
+  );
+  expect(result.loadingScreen).toBe("Orbitron");
+  expect(result.crt).toBe("Share Tech Mono");
+  expect(result.terminal).toBe("Share Tech Mono");
 });
 
 test("the default view renders the look pass within its draw-call budget", async ({
@@ -497,6 +546,81 @@ test.describe("back: graffiti alley", () => {
     await expect(canvas).toHaveAttribute("data-camera-side", "back");
     await expect(canvas).toHaveAttribute("data-camera-view", "side");
     await expect(canvas).toBeFocused();
+  });
+
+  test("clicking the graffiti above the posters opens nothing", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+
+    // Bare paint on the first floor, between the AC unit and the vent.
+    const high = screenPointFromSide(
+      "back",
+      pointOnSide("back", 0.8, 7, 0.07),
+      box,
+    );
+    await page.mouse.click(high.x, high.y);
+    await page.waitForTimeout(300);
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-camera-view", "side");
+    await page.screenshot({ path: "test-results/back-graffiti-full.png" });
+  });
+
+  test("only the posters light up while the poster row is focused", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    const layout = graffitiLayout(
+      projects.length,
+      seedFromText(projects.map((p) => p.id).join("|")),
+    );
+    const poster = layout.posters[0];
+    if (poster === undefined) throw new Error("no poster");
+    // Chromium's own capture returns base64 text, so two shots compare as strings.
+    const cdp = await page.context().newCDPSession(page);
+    const clipAt = (p: { x: number; y: number }) => ({
+      x: Math.round(p.x - 6),
+      y: Math.round(p.y - 6),
+      width: 12,
+      height: 12,
+      scale: 1,
+    });
+    const shot = async (clip: ReturnType<typeof clipAt>): Promise<string> =>
+      (await cdp.send("Page.captureScreenshot", { format: "png", clip })).data;
+    const posterClip = clipAt(screenPointFromSide("back", poster.centre, box));
+    const paintClip = clipAt(
+      screenPointFromSide("back", pointOnSide("back", 0.8, 7, 0.07), box),
+    );
+    // Keep the pointer off the wall so only focus lights it.
+    await page.mouse.move(box.x + 4, box.y + 4);
+
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await page.waitForTimeout(500);
+    const litPoster = await shot(posterClip);
+    const litPaint = await shot(paintClip);
+
+    await page.keyboard.press("Escape");
+    await expect(canvas).toHaveAttribute("data-app-state", "exploring");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await page.waitForTimeout(500);
+    const darkPoster = await shot(posterClip);
+    const darkPaint = await shot(paintClip);
+
+    expect(litPoster).not.toBe(darkPoster);
+    expect(litPaint).toBe(darkPaint);
   });
 
   test("clicking a poster opens the Projects panel on that poster's project", async ({

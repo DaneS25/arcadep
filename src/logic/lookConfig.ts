@@ -169,7 +169,7 @@ export const GRAFFITI_LOOK = {
   roughness: 0.9,
   /** The atlas also glows at this strength, kept under the bloom threshold so paint never blooms. */
   emissiveIntensity: 0.28,
-  /** Brighter while the wall is hovered or focused. */
+  /** The posters only (task 19), while the poster row is hovered or focused. */
   litEmissiveIntensity: 0.5,
   /** Fully clear texels are skipped, so the wall's bricks show between the tags. */
   alphaTest: 0.02,

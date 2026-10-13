@@ -1,9 +1,11 @@
 /**
  * The graffiti alley on the back side (task 12): a wall of procedural tags with a paste-up
- * poster per project on top, all inside the back interaction spot. The tags and every
- * poster share one atlas canvas texture: the tag layer across the top band, then one cell
- * per poster below it. All the quads merge into one mesh (one draw call). Pure numbers in
- * metres and pixels; `scene/sides/graffitiWall.ts` builds the mesh and draws the atlas.
+ * poster per project on top. Since task 19 the tags cover the whole back wall from the
+ * ground up into the second storey (`TAG_AREA`), while the posters stay in the back
+ * interaction spot on the ground floor, which is also the only part picked. The tags and
+ * every poster share one atlas canvas texture: the tag layer across the top band, then one
+ * cell per poster below it. All the quads merge into one mesh (one draw call). Pure numbers
+ * in metres and pixels; `scene/sides/graffitiWall.ts` builds the mesh and draws the atlas.
  *
  * Local coordinates as in `cabinetLayout`: `across` runs to the right of a visitor facing
  * the wall (0 at the spot's centre), `up` from the spot's bottom, `out` from the spot's
@@ -12,7 +14,12 @@
 
 import type { GeometryData } from "./boxGeometry";
 import type { InteractionSpot, Side, Vec3 } from "./buildingLayout";
-import { sideAzimuthRad, sideNormal } from "./buildingLayout";
+import {
+  floorLevels,
+  sideAzimuthRad,
+  sideNormal,
+  sideWidthM,
+} from "./buildingLayout";
 import { spotFor, toLocal, toWorld } from "./cabinetLayout";
 import type { CameraPose } from "./cameraOrbit";
 import { createRng } from "./rng";
@@ -20,16 +27,29 @@ import { createRng } from "./rng";
 export const GRAFFITI_SIDE: Side = "back";
 
 /**
- * The atlas: 1024 x 1024 px (the 1K budget). The top 384 rows hold the tag layer (8:3,
- * like the 8 x 3 m spot); below it, 4 x 2 poster cells of 256 x 320 px (4:5, like a poster).
+ * Where the tags go (task 19): the whole back wall, from just off the ground up past the
+ * second storey's floor line, so the paint reaches into the second storey. Heights in
+ * metres above the ground; the width stops short of the drain pipes at each end.
+ */
+export const TAG_AREA = {
+  widthM: sideWidthM("back") - 0.2,
+  bottomY: 0.05,
+  /** Second storey's floor line plus how far the highest paint reaches into it. */
+  topY: (floorLevels()[2]?.baseY ?? 8.5) + 1.5,
+} as const;
+
+/**
+ * The atlas: 2048 x 2048 px (2K, see decisions.md, task 19: the tags now cover a 12 x 9 m
+ * wall). The top 1727 rows hold the tag layer, the same shape as `TAG_AREA` (about 174 px
+ * a metre); below it one row of 8 poster cells of 256 x 320 px (4:5, like a poster).
  */
 export const GRAFFITI_TEXTURE = {
-  widthPx: 1024,
-  heightPx: 1024,
-  wallHeightPx: 384,
+  widthPx: 2048,
+  heightPx: 2048,
+  wallHeightPx: 1727,
   posterWidthPx: 256,
   posterHeightPx: 320,
-  posterColumns: 4,
+  posterColumns: 8,
 } as const;
 
 /** At most this many posters are pasted up; the Projects panel still lists every project. */
@@ -55,6 +75,8 @@ export const POSTER_SIZES = {
 export const LAYER_OUT_M = {
   tags: 0.01,
   posters: 0.016,
+  /** The invisible pick area, just in front of the posters. */
+  pick: 0.02,
 } as const;
 
 /** A textured quad mapped to its own rectangle of the atlas (u and v from 0 to 1, v up). */
@@ -93,8 +115,13 @@ export type GraffitiLayout = {
   readonly side: Side;
   readonly id: InteractionSpot["id"];
   readonly spot: InteractionSpot;
-  /** The tag layer, covering the whole spot. */
+  /** The tag layer, covering `TAG_AREA` (the whole back wall up into the second storey). */
   readonly wall: AtlasQuad;
+  /**
+   * The picked area: the back spot (where the posters are), just in front of them. Clicks
+   * on the rest of the graffiti do nothing, so only the poster row opens the Projects panel.
+   */
+  readonly pickArea: AtlasQuad;
   /** Its band of the atlas. */
   readonly wallRect: PixelRect;
   readonly posters: readonly PosterPlacement[];
@@ -196,10 +223,21 @@ export function graffitiLayout(
     width: GRAFFITI_TEXTURE.widthPx,
     height: GRAFFITI_TEXTURE.wallHeightPx,
   };
+  // `up` is measured from the spot's bottom, so the area's ground-level edge is below 0.
+  const spotBottomY = spot.position.y - spot.size.y / 2;
   const wall = quadAt(
     0,
-    spot.size.y / 2,
+    (TAG_AREA.bottomY + TAG_AREA.topY) / 2 - spotBottomY,
     LAYER_OUT_M.tags,
+    TAG_AREA.widthM,
+    TAG_AREA.topY - TAG_AREA.bottomY,
+    0,
+    rectUv(wallRect),
+  );
+  const pickArea = quadAt(
+    0,
+    spot.size.y / 2,
+    LAYER_OUT_M.pick,
     spot.size.x,
     spot.size.y,
     0,
@@ -247,7 +285,7 @@ export function graffitiLayout(
     });
   }
 
-  return { side, id: spot.id, spot, wall, wallRect, posters };
+  return { side, id: spot.id, spot, wall, pickArea, wallRect, posters };
 }
 
 /** Vertex data for atlas quads as one mesh, each mapped to its own atlas rectangle. */
@@ -278,6 +316,30 @@ export function atlasQuadGeometryData(
 }
 
 /**
+ * One flag per vertex of the graffiti mesh, in `[wall, ...posters]` quad order: 0 for the
+ * paint, 1 for a poster. The material brightens only flagged vertices on hover (task 19),
+ * so the posters light up as the button and the paint stays put, in the same draw call.
+ */
+export function posterVertexFlags(layout: GraffitiLayout): number[] {
+  return [
+    ...Array<number>(4).fill(0),
+    ...layout.posters.flatMap(() => Array<number>(4).fill(1)),
+  ];
+}
+
+/**
+ * How much the posters' glow is scaled on top of the material's emissive intensity:
+ * up to the lit intensity while hovered or focused, else unchanged.
+ */
+export function posterGlowScale(
+  highlighted: boolean,
+  baseIntensity: number,
+  litIntensity: number,
+): number {
+  return highlighted && baseIntensity > 0 ? litIntensity / baseIntensity : 1;
+}
+
+/**
  * The poster under a point on the wall (a picking hit, in world coordinates), as an index
  * into `layout.posters` (and so into the projects shown), or undefined between posters.
  * Each poster is tested in its own tilted frame.
@@ -302,15 +364,15 @@ export function posterAt(
 }
 
 /**
- * How the camera frames the posters while the Projects panel is open (task 14). The alley
- * is only 4 m wide, so the camera hangs over it, above the alley wall's top, and looks down
- * at the row of posters; the tween in comes over the alley wall, not through it. Like the
- * signs' view, it is aimed at the row's centre (`offsetAcrossM` 0, task 18), behind the
- * centred panel.
+ * How the camera frames the posters while the Projects panel is open (task 14). Since the
+ * tall alley wall came down (task 19) the camera no longer has to hang over the 4 m alley
+ * looking steeply down: it stands back past the low wall at about head height of a first
+ * floor window and looks across at the row. Like the signs' view, it is aimed at the row's
+ * centre (`offsetAcrossM` 0, task 18), behind the centred panel.
  */
 export const POSTERS_VIEW = {
-  polarRad: (37 * Math.PI) / 180,
-  distanceM: 6.2,
+  polarRad: (62 * Math.PI) / 180,
+  distanceM: 7.5,
   offsetAcrossM: 0,
 } as const;
 

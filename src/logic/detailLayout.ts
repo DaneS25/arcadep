@@ -233,6 +233,31 @@ function drainPipe(side: Side, alongM: number): DetailBox {
   };
 }
 
+/**
+ * Utility poles standing in the low alley wall (task 19), carrying the cables that used to
+ * end on the 5 m alley wall. `alongM` as for the back side.
+ */
+export const POLE = {
+  alongM: [-3.2, 4.4],
+  sizeM: 0.24,
+  heightM: 9,
+} as const;
+
+function utilityPole(alongM: number): DetailBox {
+  const out =
+    STREET.alleyWidthM + STREET.alleyWallThicknessM / 2 - POLE.sizeM / 2;
+  return {
+    kind: "metal",
+    box: wallBox(
+      "back",
+      alongM,
+      0,
+      { across: POLE.sizeM, up: POLE.heightM, out: POLE.sizeM },
+      out,
+    ),
+  };
+}
+
 /** A horizontal pipe along a wall between two points along it, at height `y` (its centre). */
 function pipeRun(side: Side, fromM: number, toM: number, y: number): DetailBox {
   return {
@@ -419,7 +444,9 @@ export function detailLayout(): DetailLayout {
   const top = roofTopY();
   const halfW = BUILDING.widthM / 2;
   const alley = STREET.alleyWidthM;
-  const alleyTop = STREET.alleyWallHeightM - 0.05;
+  // Cables over the alley end on utility poles standing in the low wall across it.
+  const poleTop = POLE.heightM - 0.3;
+  const poleFace = alley + STREET.alleyWallThicknessM / 2 - POLE.sizeM / 2;
   const cafe = wallSign("cafe", "front", 2.6, 3.1, D.shopFace);
   const arcade = wallSign("arcade", "right", -2.2, 6.1, D.shopFace);
   const roof = rooftopSign();
@@ -461,6 +488,8 @@ export function detailLayout(): DetailLayout {
         D.pipeGapM,
       ),
     },
+    // Utility poles across the alley, carrying the cables from the back wall.
+    ...POLE.alongM.map((alongM) => utilityPole(alongM)),
     // Puddles on the street round the corner and in the alley.
     puddle(-3, 10.5, 2.4, 1.1),
     puddle(3.5, 12.2, 1.4, 0.8),
@@ -482,20 +511,20 @@ export function detailLayout(): DetailLayout {
       pointOnSide("front", halfW - 0.1, 11.9, 0.06),
       0.6,
     ),
-    // From the back wall over the alley to the top of the alley wall.
+    // From the back wall over the alley to the utility poles.
     ...cable(
       pointOnSide("back", -2, 10.5, 0.05),
-      pointOnSide("back", -3.2, alleyTop, alley - 0.05),
+      pointOnSide("back", -3.2, poleTop, poleFace),
       0.5,
     ),
     ...cable(
       pointOnSide("back", 3, 9.6, 0.05),
-      pointOnSide("back", 4.4, alleyTop, alley - 0.05),
+      pointOnSide("back", 4.4, poleTop - 0.4, poleFace),
       0.4,
     ),
     ...cable(
       pointOnSide("back", -5, 8, 0.05),
-      pointOnSide("back", -6.5, alleyTop, alley - 0.05),
+      pointOnSide("back", -3.2, poleTop - 0.6, poleFace),
       0.3,
     ),
     // From the right side's AC unit up to the roof, and between the left side's two.

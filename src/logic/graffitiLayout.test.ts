@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { interactionSpots, sideNormal, type Vec3 } from "./buildingLayout";
+import {
+  floorLevels,
+  interactionSpots,
+  sideNormal,
+  sideWidthM,
+  type Vec3,
+} from "./buildingLayout";
 import {
   GRAFFITI_TEXTURE,
   LAYER_OUT_M,
   MAX_POSTERS,
   POSTER_SIZES,
+  TAG_AREA,
   atlasQuadGeometryData,
   graffitiLayout,
   posterAt,
   posterCell,
+  posterGlowScale,
+  posterVertexFlags,
   rectUv,
   tiltedHalfExtents,
 } from "./graffitiLayout";
@@ -56,17 +65,17 @@ describe("posterCell and rectUv", () => {
   });
 
   it("maps a rectangle to texture coordinates with v up", () => {
-    expect(rectUv({ x: 0, y: 0, width: 1024, height: 384 })).toEqual({
+    expect(rectUv({ x: 0, y: 0, width: 2048, height: 512 })).toEqual({
       uMin: 0,
       uMax: 1,
-      vMin: 0.625,
+      vMin: 0.75,
       vMax: 1,
     });
-    expect(rectUv(posterCell(0))).toEqual({
-      uMin: 0,
+    expect(rectUv(posterCell(1))).toEqual({
+      uMin: 0.125,
       uMax: 0.25,
-      vMin: 1 - 704 / 1024,
-      vMax: 1 - 384 / 1024,
+      vMin: 1 - 2047 / 2048,
+      vMax: 1 - 1727 / 2048,
     });
   });
 });
@@ -81,19 +90,46 @@ describe("tiltedHalfExtents", () => {
 });
 
 describe("graffitiLayout", () => {
-  it("covers the whole back spot with the tag layer, just off the wall", () => {
+  it("covers the whole back wall with the tag layer, from the ground into the second storey", () => {
+    const layout = graffitiLayout(3, 1);
+    expect(layout.id).toBe("spot-back");
+    const xs = layout.wall.corners.map((c) => c.x);
+    const ys = layout.wall.corners.map((c) => c.y);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(TAG_AREA.widthM);
+    expect(TAG_AREA.widthM).toBeGreaterThan(sideWidthM("back") - 0.5);
+    expect(TAG_AREA.widthM).toBeLessThan(sideWidthM("back"));
+    expect(Math.min(...xs) + Math.max(...xs)).toBeCloseTo(0);
+    expect(Math.min(...ys)).toBeCloseTo(TAG_AREA.bottomY);
+    expect(Math.min(...ys)).toBeLessThan(0.2);
+    expect(Math.max(...ys)).toBeCloseTo(TAG_AREA.topY);
+    expect(Math.max(...ys)).toBeGreaterThan(
+      (floorLevels()[2]?.baseY ?? 0) + 0.5,
+    );
+    for (const c of layout.wall.corners.map(local))
+      expect(c.out).toBeCloseTo(LAYER_OUT_M.tags);
+    expect(layout.wall.normal).toEqual(sideNormal("back"));
+  });
+
+  it("gives the tag layer's atlas band the same shape as the wall it covers", () => {
+    const band = GRAFFITI_TEXTURE.widthPx / GRAFFITI_TEXTURE.wallHeightPx;
+    const wall = TAG_AREA.widthM / (TAG_AREA.topY - TAG_AREA.bottomY);
+    expect(Math.abs(band / wall - 1)).toBeLessThan(0.01);
+  });
+
+  it("picks only the poster row: the back spot, just in front of the posters", () => {
     const layout = graffitiLayout(3, 1);
     const spot = backSpot();
-    expect(layout.id).toBe("spot-back");
-    const corners = layout.wall.corners.map(local);
+    const corners = layout.pickArea.corners.map(local);
     const across = corners.map((c) => c.across);
     const up = corners.map((c) => c.up);
     expect(Math.min(...across)).toBeCloseTo(-spot.size.x / 2);
     expect(Math.max(...across)).toBeCloseTo(spot.size.x / 2);
     expect(Math.min(...up)).toBeCloseTo(0);
     expect(Math.max(...up)).toBeCloseTo(spot.size.y);
-    for (const c of corners) expect(c.out).toBeCloseTo(LAYER_OUT_M.tags);
-    expect(layout.wall.normal).toEqual(sideNormal("back"));
+    for (const c of corners) {
+      expect(c.out).toBeCloseTo(LAYER_OUT_M.pick);
+      expect(c.out).toBeGreaterThan(LAYER_OUT_M.posters);
+    }
   });
 
   it("is the same for the same seed", () => {
@@ -229,5 +265,33 @@ describe("posterAt", () => {
 
   it("finds nothing on a wall with no posters", () => {
     expect(posterAt(graffitiLayout(0, 1), backSpot().position)).toBeUndefined();
+  });
+});
+
+describe("posterVertexFlags", () => {
+  it("flags every poster vertex and none of the paint's, in mesh order", () => {
+    const layout = graffitiLayout(3, 1);
+    const flags = posterVertexFlags(layout);
+    const vertices =
+      atlasQuadGeometryData([layout.wall, ...layout.posters.map((p) => p.quad)])
+        .positions.length / 3;
+    expect(flags).toHaveLength(vertices);
+    expect(flags.slice(0, 4)).toEqual([0, 0, 0, 0]);
+    expect(flags.slice(4)).toEqual(Array<number>(12).fill(1));
+  });
+
+  it("flags nothing but the paint on a wall with no posters", () => {
+    expect(posterVertexFlags(graffitiLayout(0, 1))).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("posterGlowScale", () => {
+  it("raises the posters to the lit intensity only while highlighted", () => {
+    expect(posterGlowScale(false, 0.28, 0.5)).toBe(1);
+    expect(posterGlowScale(true, 0.28, 0.5) * 0.28).toBeCloseTo(0.5);
+  });
+
+  it("leaves the glow alone when the base intensity is zero", () => {
+    expect(posterGlowScale(true, 0, 0.5)).toBe(1);
   });
 });
