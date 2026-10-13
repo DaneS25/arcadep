@@ -420,6 +420,8 @@ test.describe("front: arcade cabinet", () => {
   test("opens the CRT about pages by keyboard, pages forward and closes with Escape", async ({
     page,
   }) => {
+    // Runs close to the 30 s default on a busy machine (it timed out once in task 21).
+    test.slow();
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     await expect(page.locator("#loading-screen")).toBeHidden();

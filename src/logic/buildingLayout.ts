@@ -305,13 +305,24 @@ type SpotPlacement = {
   readonly size: Vec3;
 };
 
+/**
+ * How much bigger the arcade cabinet is than a real one (0.8 x 1.8 x 0.8 m), so it reads
+ * from the street (task 21). `logic/cabinetLayout.ts` scales its parts by the same factor.
+ */
+export const CABINET_SCALE = 2;
+
 const SPOT_PLACEMENTS: Readonly<Record<Side, SpotPlacement>> = {
   // Arcade cabinet standing on the pavement, left of the storefront's centre.
   front: {
-    alongM: -3,
+    // Centred in the 2.2 m of wall between the two shop windows either side.
+    alongM: -3.2,
     bottomY: STREET.curbHeightM,
     gapM: 0.3,
-    size: { x: 0.8, y: 1.8, z: 0.8 },
+    size: {
+      x: 0.8 * CABINET_SCALE,
+      y: 1.8 * CABINET_SCALE,
+      z: 0.8 * CABINET_SCALE,
+    },
   },
   // Cluster of neon signs on the first floor.
   left: {
