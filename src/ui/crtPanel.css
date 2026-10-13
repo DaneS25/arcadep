@@ -19,16 +19,16 @@
   position: relative;
   min-height: 12rem;
   padding: var(--space-3);
-  border: 2px solid rgb(255 176 0 / 35%);
+  border: 2px solid rgb(168 117 255 / 35%);
   border-radius: 1.25rem / 1rem;
   background: radial-gradient(
     ellipse at center,
-    rgb(255 176 0 / 6%),
+    rgb(168 117 255 / 6%),
     var(--color-base, #07070b) 75%
   );
   box-shadow:
     inset 0 0 2.5rem rgb(0 0 0 / 80%),
-    0 0 1.5rem rgb(255 176 0 / 12%);
+    0 0 1.5rem rgb(168 117 255 / 12%);
   overflow: hidden;
 }
 
@@ -58,12 +58,12 @@
 
 .crt__heading {
   margin: 0 0 var(--space-2);
-  color: var(--color-amber, #ffb000);
+  color: var(--color-violet, #a875ff);
   font-size: clamp(1.25rem, 2.6vw, 1.6rem);
   font-weight: normal;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-shadow: 0 0 6px rgb(255 176 0 / 55%);
+  text-shadow: 0 0 6px rgb(168 117 255 / 55%);
 }
 
 .crt__text {

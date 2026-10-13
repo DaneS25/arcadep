@@ -8,12 +8,18 @@ import {
   ENVIRONMENT_PANELS,
   FOG,
   GRAFFITI_LOOK,
-  NEON_INTENSITY,
+  AMBIENT_LIGHTS,
+  ENVIRONMENT,
+  NEON_BLOOM_LUMA,
   NEON_LIGHTS,
+  SIGNS_LOOK,
+  TONE_MAPPING,
   SURFACES,
   TERMINAL_LOOK,
   WISPS_LOOK,
+  bloomLuma,
   fogFactor,
+  neonIntensity,
   surfaceMaterialParams,
 } from "./lookConfig";
 import { PALETTE } from "./palette";
@@ -92,14 +98,29 @@ describe("fogFactor", () => {
 });
 
 describe("neon and bloom", () => {
-  it("drives the neon well past the bloom threshold", () => {
-    expect(NEON_INTENSITY).toBeGreaterThan(BLOOM.threshold * 2);
+  it("drives every neon colour just past the bloom threshold, equally", () => {
     expect(BLOOM.threshold).toBeGreaterThan(0.5);
     expect(BLOOM.threshold).toBeLessThan(1);
+    expect(NEON_BLOOM_LUMA).toBeGreaterThan(BLOOM.threshold);
+    expect(NEON_BLOOM_LUMA).toBeLessThan(BLOOM.threshold * 1.25);
+    for (const hex of [PALETTE.accent, PALETTE.cyan, PALETTE.purple]) {
+      const luma = (bloomLuma(hex) ?? Number.NaN) * neonIntensity(hex);
+      expect(luma).toBeCloseTo(NEON_BLOOM_LUMA, 6);
+    }
+    // Darker than the task 9 look, where red tubes were 3 times their colour.
+    expect(neonIntensity(PALETTE.accent)).toBeLessThan(3);
+  });
+
+  it("weighs colours as the bloom pass does", () => {
+    expect(bloomLuma("#000000")).toBe(0);
+    expect(bloomLuma("#ffffff")).toBeCloseTo(1, 6);
+    expect(bloomLuma("#ff0000")).toBeCloseTo(0.299, 6);
+    expect(bloomLuma("red")).toBeUndefined();
+    expect(neonIntensity("#000000")).toBe(1);
   });
 
   it("colours the lights and environment panels with neon tokens only", () => {
-    const neon = new Set(["accent", "cyan", "amber"]);
+    const neon = new Set(["accent", "cyan", "purple"]);
     for (const light of NEON_LIGHTS) expect(neon.has(light.color)).toBe(true);
     for (const panel of ENVIRONMENT_PANELS)
       expect(neon.has(panel.color)).toBe(true);
@@ -187,5 +208,75 @@ describe("WISPS_LOOK", () => {
       WISPS_LOOK.intensity;
     expect(one).toBeGreaterThan(0);
     expect(3 * one).toBeLessThan(BLOOM.threshold / 4);
+  });
+});
+
+/** HSL hue in degrees and saturation 0 to 1 of a `#rrggbb` colour. */
+function hueSat(hex: string): { hue: number; sat: number } {
+  const [r, g, b] = [1, 3, 5].map(
+    (i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255,
+  ) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (d === 0) return { hue: 0, sat: 0 };
+  const l = (max + min) / 2;
+  const sat = d / (1 - Math.abs(2 * l - 1));
+  let hue: number;
+  if (max === r) hue = ((g - b) / d) % 6;
+  else if (max === g) hue = (b - r) / d + 2;
+  else hue = (r - g) / d + 4;
+  return { hue: (hue * 60 + 360) % 360, sat };
+}
+
+describe("look feedback (task 17): darker, purple instead of amber", () => {
+  it("has no yellow, amber or orange colour anywhere in the palette or the lights", () => {
+    const colours = [
+      ...Object.values(PALETTE),
+      AMBIENT_LIGHTS.hemisphere.sky,
+      AMBIENT_LIGHTS.moon.color,
+      WISPS_LOOK.color,
+      DETAILS_LOOK.signCore,
+      ...DETAILS_LOOK.puddleGlow,
+      ENVIRONMENT.roomColor,
+    ];
+    for (const hex of colours) {
+      const { hue, sat } = hueSat(hex);
+      // Saturated colours only; the near-greys and the poster paper don't count.
+      if (sat > 0.3) {
+        expect(hue < 15 || hue > 75, `${hex} at ${String(hue)}°`).toBe(true);
+      }
+    }
+    expect(Object.keys(PALETTE)).not.toContain("amber");
+  });
+
+  it("uses deep purple for the secondary neon and red as the main one", () => {
+    const purple = hueSat(PALETTE.purple);
+    expect(purple.hue).toBeGreaterThan(260);
+    expect(purple.hue).toBeLessThan(290);
+    expect(relativeLuminance(PALETTE.purple)).toBeLessThan(0.2);
+    expect(hueSat(PALETTE.violet).hue).toBeGreaterThan(250);
+    expect(hueSat(PALETTE.violet).hue).toBeLessThan(290);
+    const red = NEON_LIGHTS.filter((l) => l.color === "accent");
+    expect(red.length).toBeGreaterThan(NEON_LIGHTS.length / 2 - 1);
+    expect(NEON_LIGHTS.some((l) => l.color === "purple")).toBe(true);
+    expect(DETAILS_LOOK.signColors.rooftop).toBe("accent");
+  });
+
+  it("is darker than the task 9 to 16 look", () => {
+    expect(TONE_MAPPING.exposure).toBeLessThanOrEqual(0.8);
+    expect(AMBIENT_LIGHTS.hemisphere.intensity).toBeLessThanOrEqual(0.8);
+    expect(AMBIENT_LIGHTS.moon.intensity).toBeLessThanOrEqual(0.6);
+    expect(BLOOM.strength).toBeLessThan(1.2);
+    expect(ENVIRONMENT.intensity).toBeLessThan(0.6);
+    const lightTotal = NEON_LIGHTS.reduce((sum, l) => sum + l.intensity, 0);
+    expect(lightTotal).toBeLessThan(115);
+    expect(SIGNS_LOOK.faceIntensity).toBeLessThan(1.3);
+    expect(SIGNS_LOOK.litFaceIntensity).toBeLessThan(2.1);
+    expect(DETAILS_LOOK.emissiveIntensity).toBeLessThan(1.4);
+    expect(CABINET_LOOK.faceIntensity).toBeLessThan(1.3);
+    expect(TERMINAL_LOOK.emissiveIntensity).toBeLessThan(1.6);
+    expect(GRAFFITI_LOOK.emissiveIntensity).toBeLessThan(0.35);
+    expect(WISPS_LOOK.intensity).toBeLessThan(0.18);
   });
 });

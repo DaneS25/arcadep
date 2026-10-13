@@ -11,6 +11,6 @@ export type Signage = {
 
 // DUMMY: replace
 export const signage: Signage = {
-  cafe: "NEON CAFE",
+  cafe: "COFFEE",
   arcade: "ARCADE",
 };

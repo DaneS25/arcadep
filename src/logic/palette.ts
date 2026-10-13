@@ -9,8 +9,13 @@ export const PALETTE = {
   accent: "#ff2a3d",
   /** Secondary neon accent: focus rings and buttons on overlays. */
   cyan: "#22e4ff",
-  /** Secondary neon accent: highlights and warnings. */
-  amber: "#ffb000",
+  /**
+   * Deep purple neon, the secondary colour since the look feedback (user, 2026-10-13):
+   * tubes, coloured lights and the environment. Too dark for small text; text uses `violet`.
+   */
+  purple: "#8f1cff",
+  /** Readable purple for headings, tags and canvas text (AA on base and panel). */
+  violet: "#a875ff",
   /** Overlay panel surface. */
   panel: "#0e0e15",
   /** Body text on the base and panel surfaces. */

@@ -41,7 +41,7 @@ export const SIGN_SIZES = {
 } as const;
 
 /** Neon colours the groups take in turn. */
-const GROUP_COLORS: readonly PaletteToken[] = ["accent", "cyan", "amber"];
+const GROUP_COLORS: readonly PaletteToken[] = ["accent", "cyan", "violet"];
 
 export type SignPlacement = {
   /** The glowing face, mapped to its own atlas cell. */

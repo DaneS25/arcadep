@@ -113,8 +113,31 @@ export function surfaceMaterialParams<T>(
   };
 }
 
-/** Neon tubes: colour times this, so they pass the bloom threshold. */
-export const NEON_INTENSITY = 3;
+/**
+ * How bright a linear colour is to the bloom pass (`LuminosityHighPassShader` weights).
+ * Undefined for anything that isn't `#rrggbb`.
+ */
+export function bloomLuma(hex: string): number | undefined {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return undefined;
+  const channel = (offset: number): number => {
+    const c = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.299 * channel(1) + 0.587 * channel(3) + 0.114 * channel(5);
+}
+
+/**
+ * Neon tubes all reach this brightness as the bloom pass sees it: just past the
+ * threshold, so every colour glows the same, dimly (task 17, darker look). Red was 3 times
+ * its colour before (about 0.95); deep purple, being dark, needs a larger multiplier.
+ */
+export const NEON_BLOOM_LUMA = 0.9;
+
+/** What a neon tube's colour is multiplied by, so it reaches `NEON_BLOOM_LUMA`. */
+export function neonIntensity(hex: string): number {
+  const luma = bloomLuma(hex);
+  return luma === undefined || luma <= 0 ? 1 : NEON_BLOOM_LUMA / luma;
+}
 
 /**
  * The arcade cabinet (task 10): a painted metal body, and the marquee and screen (one
@@ -125,15 +148,15 @@ export const CABINET_LOOK = {
   bodyMetalness: 0.25,
   /** Red glow on the body while it's hovered or focused. */
   highlightEmissive: 0.3,
-  faceIntensity: 1.3,
+  faceIntensity: 1.1,
 } as const;
 
 /** The neon skill signs on the left side (task 11). */
 export const SIGNS_LOOK = {
   /** Sign faces: atlas colour times this; the tubes pass the bloom threshold, the plates don't. */
-  faceIntensity: 1.3,
+  faceIntensity: 1.1,
   /** Brighter faces while the cluster is hovered or focused. */
-  litFaceIntensity: 2.1,
+  litFaceIntensity: 1.8,
   /**
    * Red glow on the plates while hovered or focused. The plates are part of the details
    * mesh since task 15, which draws this through its atlas.
@@ -145,9 +168,9 @@ export const SIGNS_LOOK = {
 export const GRAFFITI_LOOK = {
   roughness: 0.9,
   /** The atlas also glows at this strength, kept under the bloom threshold so paint never blooms. */
-  emissiveIntensity: 0.35,
+  emissiveIntensity: 0.28,
   /** Brighter while the wall is hovered or focused. */
-  litEmissiveIntensity: 0.6,
+  litEmissiveIntensity: 0.5,
   /** Fully clear texels are skipped, so the wall's bricks show between the tags. */
   alphaTest: 0.02,
 } as const;
@@ -160,9 +183,9 @@ export const GRAFFITI_LOOK = {
 export const TERMINAL_LOOK = {
   roughness: 0.5,
   metalness: 0.35,
-  emissiveIntensity: 1.6,
+  emissiveIntensity: 1.4,
   /** Brighter screen while the terminal is hovered or focused. */
-  litEmissiveIntensity: 2.4,
+  litEmissiveIntensity: 2,
 } as const;
 
 /**
@@ -192,23 +215,23 @@ export const DETAILS_LOOK = {
     // in linear light, so merging them into the details mesh keeps their look.
     signPlate: 0.09,
   },
-  emissiveIntensity: 1.4,
+  emissiveIntensity: 1.2,
   /**
    * A thin, pale, hot line down each letter of the signs, drawn over the coloured glow:
    * only it blooms, so the words stay readable.
    */
   signCore: "#ffe4e8",
   /** The neon colour each sign's glow is drawn in. */
-  signColors: { rooftop: "accent", cafe: "cyan", arcade: "amber" },
+  signColors: { rooftop: "accent", cafe: "cyan", arcade: "purple" },
   /** The puddles' faint reflection of the neon: dim red and cyan, far under the bloom. */
   puddleGlow: ["#2a080d", "#04191d"],
 } as const;
 
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */
 export const BLOOM = {
-  strength: 1.2,
+  strength: 0.9,
   /** Spread of the glow, 0 to 1. */
-  radius: 0.5,
+  radius: 0.45,
   threshold: 0.8,
 } as const;
 
@@ -227,13 +250,13 @@ export const WISPS_LOOK = {
   /** A cool, pale grey: mist lit by the street and the neon. */
   color: "#9aa0b8",
   /** Brightest a wisp gets (its colour times this, times its own strength). */
-  intensity: 0.18,
+  intensity: 0.14,
   /** Side of the generated wisp texture, in pixels. */
   texturePx: 128,
 } as const;
 
 export const TONE_MAPPING = {
-  exposure: 1.1,
+  exposure: 0.8,
 } as const;
 
 /** How much of a surface `FogExp2` hides at `distanceM` (0 clear, 1 fully fogged). */
@@ -264,37 +287,38 @@ export const NEON_LIGHTS: readonly PointLightSpec[] = [
     name: "front-red",
     color: "accent",
     position: { x: 0, y: 3.2, z: 7 },
-    intensity: 40,
+    intensity: 28,
     distanceM: 22,
   },
   {
     name: "left-cyan",
     color: "cyan",
     position: { x: -8, y: 3.4, z: 0 },
-    intensity: 25,
+    intensity: 16,
     distanceM: 18,
   },
   {
     name: "right-red",
     color: "accent",
     position: { x: 8.5, y: 6, z: 0 },
-    intensity: 30,
+    intensity: 20,
     distanceM: 20,
   },
   {
-    name: "alley-amber",
-    color: "amber",
+    name: "alley-purple",
+    color: "purple",
     position: { x: 0, y: 4, z: -7 },
-    intensity: 20,
+    intensity: 18,
     distanceM: 16,
   },
 ];
 
 export const AMBIENT_LIGHTS = {
-  hemisphere: { sky: "#3a3a55", ground: PALETTE.base, intensity: 1.5 },
+  // A dim purple-grey night sky, darker since the look feedback (task 17).
+  hemisphere: { sky: "#2a2040", ground: PALETTE.base, intensity: 0.8 },
   moon: {
-    color: "#8890c0",
-    intensity: 1.1,
+    color: "#7a74b8",
+    intensity: 0.55,
     position: { x: -10, y: 20, z: 14 },
   },
 } as const;
@@ -321,34 +345,34 @@ export const ENVIRONMENT = {
   roomSizeM: 40,
   roomColor: "#0b0b12",
   /** Overall strength of the environment on every standard material. */
-  intensity: 0.6,
+  intensity: 0.45,
 } as const;
 
 export const ENVIRONMENT_PANELS: readonly EnvironmentPanel[] = [
   {
     color: "accent",
-    intensity: 6,
+    intensity: 5,
     position: { x: 0, y: 6, z: 18 },
     size: { width: 16, height: 3 },
     rotationYRad: Math.PI,
   },
   {
     color: "cyan",
-    intensity: 4,
+    intensity: 3,
     position: { x: -18, y: 5, z: 0 },
     size: { width: 10, height: 2 },
     rotationYRad: Math.PI / 2,
   },
   {
     color: "accent",
-    intensity: 5,
+    intensity: 4,
     position: { x: 18, y: 8, z: -4 },
     size: { width: 12, height: 2 },
     rotationYRad: -Math.PI / 2,
   },
   {
-    color: "amber",
-    intensity: 3,
+    color: "purple",
+    intensity: 4,
     position: { x: 0, y: 4, z: -18 },
     size: { width: 14, height: 2 },
     rotationYRad: 0,

@@ -7,7 +7,7 @@ import {
   Quaternion,
   Vector3,
 } from "three";
-import { NEON_INTENSITY } from "@/logic/lookConfig";
+import { neonIntensity } from "@/logic/lookConfig";
 import { neonStrips } from "@/logic/neonLayout";
 import { PALETTE } from "@/logic/palette";
 
@@ -18,7 +18,7 @@ export type NeonTubes = {
 
 /**
  * Every neon tube as one instanced unit cube: one draw call whatever the count. Colours
- * are pushed past 1 so the bloom pass picks them up; unlit, so they glow in the dark.
+ * are pushed just past the bloom threshold, every colour equally; unlit, so they glow in the dark.
  */
 export function createNeonTubes(): NeonTubes {
   const strips = neonStrips();
@@ -38,7 +38,9 @@ export function createNeonTubes(): NeonTubes {
     mesh.setMatrixAt(i, matrix.compose(position, rotation, scale));
     mesh.setColorAt(
       i,
-      color.set(PALETTE[strip.color]).multiplyScalar(NEON_INTENSITY),
+      color
+        .set(PALETTE[strip.color])
+        .multiplyScalar(neonIntensity(PALETTE[strip.color])),
     );
   });
   mesh.instanceMatrix.needsUpdate = true;

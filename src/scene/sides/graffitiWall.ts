@@ -48,7 +48,7 @@ export type GraffitiWall = {
 };
 
 /** Accent colour per poster, in turn. */
-const POSTER_ACCENTS: readonly PaletteToken[] = ["accent", "cyan", "amber"];
+const POSTER_ACCENTS: readonly PaletteToken[] = ["accent", "cyan", "violet"];
 
 function drawTag(
   ctx: CanvasRenderingContext2D,

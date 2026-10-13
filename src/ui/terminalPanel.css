@@ -70,7 +70,7 @@
 }
 
 .terminal__echo {
-  color: var(--color-amber, #ffb000);
+  color: var(--color-violet, #a875ff);
 }
 
 .terminal__sign {
