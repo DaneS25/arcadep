@@ -1,18 +1,13 @@
-import { Group, MeshStandardMaterial, type Mesh, type Object3D } from "three";
-import {
-  interactionSpots,
-  sideAzimuthRad,
-  type InteractionSpot,
-} from "@/logic/buildingLayout";
-import { PALETTE } from "@/logic/palette";
+import { Group, type Object3D } from "three";
+import { interactionSpots, type InteractionSpot } from "@/logic/buildingLayout";
 import { createCabinet, type AttractInfo } from "../sides/cabinet";
+import { createDoorTerminal } from "../sides/doorTerminal";
 import {
   createGraffitiWall,
   type PosterProject,
   type Thumbnails,
 } from "../sides/graffitiWall";
 import { createNeonSigns, type SignSkill } from "../sides/neonSigns";
-import { boxMesh, createUnitBox } from "./boxMesh";
 
 export type SpotMarker = {
   readonly id: InteractionSpot["id"];
@@ -46,28 +41,16 @@ export type SpotsContent = {
 
 /**
  * Each side's interactive prop at its spot: the arcade cabinet on the front (task 10), the
- * neon skill signs on the left (task 11), the graffiti wall on the back (task 12), and a
- * glowing placeholder box on the side still to come (task 13). Every prop keeps its spot's id for picking.
+ * neon skill signs on the left (task 11), the graffiti wall on the back (task 12) and the
+ * door terminal on the right (task 13). Every prop keeps its spot's id for picking.
  */
 export function createInteractionSpots(
   content: SpotsContent,
 ): InteractionSpots {
-  const geometry = createUnitBox();
-  const material = new MeshStandardMaterial({
-    color: PALETTE.base,
-    emissive: PALETTE.accent,
-    emissiveIntensity: 1,
-  });
-  // Brighter body as well as glow, so the highlight reads before bloom arrives (task 9).
-  const lit = new MeshStandardMaterial({
-    color: PALETTE.accent,
-    emissive: PALETTE.accent,
-    emissiveIntensity: 2,
-  });
-  const boxes = new Map<SpotMarker["id"], Mesh>();
   const cabinet = createCabinet(content.attract);
   const signs = createNeonSigns(content.skills);
   const graffiti = createGraffitiWall(content.projects);
+  const terminal = createDoorTerminal();
 
   const group = new Group();
   group.name = "interaction-spots";
@@ -84,30 +67,18 @@ export function createInteractionSpots(
       group.add(graffiti.object);
       return { id: spot.id, side: spot.side, object: graffiti.object };
     }
-    // Sizes are in the side's own frame; turning the box to face out of its wall lines them up.
-    const mesh = boxMesh(
-      geometry,
-      material,
-      { centre: spot.position, size: spot.size },
-      spot.id,
-    );
-    mesh.rotation.y = sideAzimuthRad(spot.side);
-    mesh.userData = { spotId: spot.id, side: spot.side };
-    group.add(mesh);
-    boxes.set(spot.id, mesh);
-    return { id: spot.id, side: spot.side, object: mesh };
+    group.add(terminal.object);
+    return { id: spot.id, side: spot.side, object: terminal.object };
   });
 
   return {
     object: group,
     markers,
     setHighlighted(id) {
-      for (const [markerId, mesh] of boxes) {
-        mesh.material = markerId === id ? lit : material;
-      }
       cabinet.setHighlighted(id === "spot-front");
       signs.setHighlighted(id === "spot-left");
       graffiti.setHighlighted(id === "spot-back");
+      terminal.setHighlighted(id === "spot-right");
     },
     setThumbnails(thumbnails) {
       graffiti.setThumbnails(thumbnails);
@@ -120,16 +91,14 @@ export function createInteractionSpots(
       cabinet.redraw();
       signs.redraw();
       graffiti.redraw();
+      terminal.redraw();
     },
     dispose() {
       group.clear();
-      boxes.clear();
       cabinet.dispose();
       signs.dispose();
       graffiti.dispose();
-      geometry.dispose();
-      material.dispose();
-      lit.dispose();
+      terminal.dispose();
     },
   };
 }

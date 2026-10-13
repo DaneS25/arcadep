@@ -151,6 +151,19 @@ export const GRAFFITI_LOOK = {
   alphaTest: 0.02,
 } as const;
 
+/**
+ * The door terminal (right side): painted metal, with the screen and keypad drawn on its
+ * canvas and also used as the emissive map, so the screen's bright text blooms and the
+ * dark housing doesn't.
+ */
+export const TERMINAL_LOOK = {
+  roughness: 0.5,
+  metalness: 0.35,
+  emissiveIntensity: 1.6,
+  /** Brighter screen while the terminal is hovered or focused. */
+  litEmissiveIntensity: 2.4,
+} as const;
+
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */
 export const BLOOM = {
   strength: 1.2,

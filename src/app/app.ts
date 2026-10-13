@@ -13,7 +13,8 @@ import { SCENE_LABEL } from "@/ui/copy";
 import { renderCrtPanel } from "@/ui/crtPanel";
 import { renderProjectPanel } from "@/ui/projectPanel";
 import { renderSkillPanel } from "@/ui/skillPanel";
-import { createPanelLayer, placeholderPanel } from "@/ui/panelLayer";
+import { renderTerminalPanel } from "@/ui/terminalPanel";
+import { createPanelLayer } from "@/ui/panelLayer";
 import {
   createAssetSources,
   createLoadingManager,
@@ -86,7 +87,7 @@ export function startApp(
     reducedMotion.dispose();
   });
 
-  const { profile, skills, projects } = options.content;
+  const { profile, skills, projects, contact } = options.content;
   const stage = createStage({
     attract: { name: profile.name, title: profile.title },
     skills,
@@ -132,7 +133,10 @@ export function startApp(
         return renderProjectPanel(projects, doc, (path) =>
           thumbnails.has(path),
         );
-      return placeholderPanel(side, doc);
+      // `exit` closes like Escape: through the state machine, back to the street.
+      return renderTerminalPanel({ profile, contact }, doc, () => {
+        interaction.send({ kind: "close" });
+      });
     },
   });
   disposer.add(() => {

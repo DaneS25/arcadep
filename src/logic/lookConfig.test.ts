@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAMERA } from "./cameraOrbit";
+import { relativeLuminance } from "./contrast";
 import {
   BLOOM,
   CABINET_LOOK,
@@ -9,6 +10,7 @@ import {
   NEON_INTENSITY,
   NEON_LIGHTS,
   SURFACES,
+  TERMINAL_LOOK,
   fogFactor,
   surfaceMaterialParams,
 } from "./lookConfig";
@@ -128,5 +130,21 @@ describe("GRAFFITI_LOOK", () => {
     );
     expect(GRAFFITI_LOOK.alphaTest).toBeGreaterThan(0);
     expect(GRAFFITI_LOOK.alphaTest).toBeLessThan(0.1);
+  });
+});
+
+describe("TERMINAL_LOOK", () => {
+  it("makes the screen text bloom but never the housing, lit or not", () => {
+    const glow = (hex: string, intensity: number): number =>
+      (relativeLuminance(hex) ?? Number.NaN) * intensity;
+    expect(glow(PALETTE.cyan, TERMINAL_LOOK.emissiveIntensity)).toBeGreaterThan(
+      BLOOM.threshold,
+    );
+    expect(
+      glow(PALETTE.terminal, TERMINAL_LOOK.litEmissiveIntensity),
+    ).toBeLessThan(BLOOM.threshold / 10);
+    expect(TERMINAL_LOOK.litEmissiveIntensity).toBeGreaterThan(
+      TERMINAL_LOOK.emissiveIntensity,
+    );
   });
 });

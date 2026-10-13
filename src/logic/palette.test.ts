@@ -19,6 +19,7 @@ describe("paletteCssVars", () => {
       { name: "--color-cabinet", value: PALETTE.cabinet },
       { name: "--color-signPlate", value: PALETTE.signPlate },
       { name: "--color-posterPaper", value: PALETTE.posterPaper },
+      { name: "--color-terminal", value: PALETTE.terminal },
     ]);
   });
 

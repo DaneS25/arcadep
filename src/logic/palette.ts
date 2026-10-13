@@ -31,6 +31,8 @@ export const PALETTE = {
   signPlate: "#121219",
   /** Paste-up poster paper on the graffiti wall (back side). */
   posterPaper: "#d8d0bf",
+  /** Door terminal housing and the side door (right side). */
+  terminal: "#1a1a22",
 } as const;
 
 export type PaletteToken = keyof typeof PALETTE;

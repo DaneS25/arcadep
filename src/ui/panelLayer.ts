@@ -17,6 +17,8 @@ export type PanelView = {
   readonly onKeyDown?: (event: KeyboardEvent) => void;
   /** Called when the view is replaced or the panel closes. */
   readonly dispose?: () => void;
+  /** Gets focus when the panel opens, instead of the close button (the terminal's input). */
+  readonly initialFocus?: HTMLElement;
 };
 
 /** Builds a side's panel content. The side tasks (10 to 13) supply real ones. */
@@ -133,7 +135,7 @@ export function createPanelLayer(options: PanelLayerOptions): PanelLayer {
     openSide = side;
     show(side);
     if (!dialog.open) dialog.showModal();
-    close.focus();
+    (view?.initialFocus ?? close).focus();
   };
 
   const hide = (): void => {
