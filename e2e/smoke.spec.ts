@@ -3,18 +3,18 @@ import { contact } from "../src/content/contact";
 import { profile } from "../src/content/profile";
 import { projects } from "../src/content/projects";
 import { skills } from "../src/content/skills";
-import type { Vec3 } from "../src/logic/buildingLayout";
-import { pointOnSide } from "../src/logic/buildingLayout";
+import type { Side, Vec3 } from "../src/logic/buildingLayout";
+import { pointOnSide, wallOpenings } from "../src/logic/buildingLayout";
 import { posePosition, sidePose } from "../src/logic/cameraOrbit";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
 import { seedFromText } from "../src/logic/neonFlicker";
 
 /**
  * Where a world point lands in the canvas from a side's view (the app's 50° camera), in
- * page pixels, so a test can click one poster.
+ * page pixels, so a test can click one poster or look at one window.
  */
 function screenPointFromSide(
-  side: "back",
+  side: Side,
   point: Vec3,
   box: { x: number; y: number; width: number; height: number },
 ): { x: number; y: number } {
@@ -149,6 +149,54 @@ test.describe("camera navigation", () => {
       await expect(canvas).toHaveAttribute("data-camera-side", side);
       await page.screenshot({ path: `test-results/side-${side}.png` });
     }
+  });
+
+  test("the flickering windows hold steady under reduced motion", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    await page.keyboard.press("ArrowRight");
+    await expect(canvas).toHaveAttribute("data-camera-side", "right");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    // Keep the pointer off the building.
+    await page.mouse.move(box.x + 4, box.y + 4);
+    const flickering = wallOpenings().filter((o) => o.flicker);
+    expect(flickering.length).toBeGreaterThan(0);
+    const cdp = await page.context().newCDPSession(page);
+    const clips = flickering.map((o) => {
+      const p = screenPointFromSide(
+        o.side,
+        pointOnSide(o.side, o.alongM, o.bottomY + o.heightM / 2, 0.05),
+        box,
+      );
+      return {
+        x: Math.round(p.x - 4),
+        y: Math.round(p.y - 4),
+        width: 8,
+        height: 8,
+        scale: 1,
+      };
+    });
+    const shoot = async (): Promise<string[]> =>
+      Promise.all(
+        clips.map(
+          async (clip) =>
+            (await cdp.send("Page.captureScreenshot", { format: "png", clip }))
+              .data,
+        ),
+      );
+    await page.waitForTimeout(300);
+    const first = await shoot();
+    // Long enough for several of the flicker's 400 ms slots to pass.
+    for (let i = 0; i < 12; i += 1) {
+      await page.waitForTimeout(150);
+      expect(await shoot()).toEqual(first);
+    }
+    await page.screenshot({ path: "test-results/windows-right.png" });
   });
 
   test("dragging with the mouse takes the camera off the side views", async ({
@@ -560,10 +608,10 @@ test.describe("back: graffiti alley", () => {
     const box = await canvas.boundingBox();
     if (box === null) throw new Error("canvas has no box");
 
-    // Bare paint on the first floor, between the AC unit and the vent.
+    // Bare paint on the first floor, above the vent and clear of the windows.
     const high = screenPointFromSide(
       "back",
-      pointOnSide("back", 0.8, 7, 0.07),
+      pointOnSide("back", 1.9, 7.6, 0.07),
       box,
     );
     await page.mouse.click(high.x, high.y);
@@ -601,7 +649,7 @@ test.describe("back: graffiti alley", () => {
       (await cdp.send("Page.captureScreenshot", { format: "png", clip })).data;
     const posterClip = clipAt(screenPointFromSide("back", poster.centre, box));
     const paintClip = clipAt(
-      screenPointFromSide("back", pointOnSide("back", 0.8, 7, 0.07), box),
+      screenPointFromSide("back", pointOnSide("back", 1.9, 7.6, 0.07), box),
     );
     // Keep the pointer off the wall so only focus lights it.
     await page.mouse.move(box.x + 4, box.y + 4);

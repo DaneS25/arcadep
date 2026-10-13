@@ -214,6 +214,11 @@ export const DETAILS_LOOK = {
     // The skill-sign plates (task 15): the old plain plate colour (`signPlate`) over `prop`,
     // in linear light, so merging them into the details mesh keeps their look.
     signPlate: 0.09,
+    // Windows and doors (task 20): dark painted frames, grey weathered planks, doors
+    // between the two.
+    frame: 0.18,
+    board: 0.4,
+    door: 0.26,
   },
   emissiveIntensity: 1.2,
   /**
@@ -225,6 +230,27 @@ export const DETAILS_LOOK = {
   signColors: { rooftop: "accent", cafe: "cyan", arcade: "purple" },
   /** The puddles' faint reflection of the neon: dim red and cyan, far under the bloom. */
   puddleGlow: ["#2a080d", "#04191d"],
+} as const;
+
+/**
+ * Window glass (task 20), drawn into the details atlas and glowing through its emissive
+ * map: dim purple, red or cold light, every colour far under the bloom threshold, so the
+ * windows light the walls a little without blooming. `glow` is the brightest spot of a
+ * pane, `edge` its corners; dark glass only shows a faint sheen.
+ */
+export const WINDOW_LOOK = {
+  lights: {
+    purple: { glow: "#4a2478", edge: "#1a0b2c" },
+    red: { glow: "#5e1822", edge: "#22070c" },
+    cold: { glow: "#5a6e80", edge: "#1a2128" },
+  },
+  /** Unlit glass and its sheen. */
+  dark: "#050508",
+  sheen: "#14141c",
+  /** Blinds, mullions, silhouettes and the cracks' shadow: near black. */
+  shadow: "#040306",
+  /** Pale lines of cracked glass catching light. */
+  crack: "#2c2c36",
 } as const;
 
 /** `UnrealBloomPass` settings. Only the neon (well above 1) should cross the threshold. */

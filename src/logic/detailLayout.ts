@@ -30,7 +30,13 @@ export type DetailKind =
   | "puddle"
   | "face"
   /** The left side's skill-sign backing plates (task 15), merged in to save a draw call. */
-  | "signPlate";
+  | "signPlate"
+  /** Window and door frames and sills (task 20). */
+  | "frame"
+  /** Planks nailed over a window. */
+  | "board"
+  /** A door leaf. */
+  | "door";
 
 export type DetailBox = { readonly kind: DetailKind; readonly box: Box };
 
@@ -47,21 +53,32 @@ export type SignId = "rooftop" | "cafe" | "arcade";
 /** A sign's glowing face, mapped to its own rectangle of the atlas. */
 export type SignFace = { readonly sign: SignId; readonly quad: AtlasQuad };
 
+/** A window's (or the shop door's) glass, mapped to its cell of the atlas (task 20). */
+export type WindowGlass = {
+  readonly cell: WindowCellId;
+  /** Whether this pane's light now and then cuts out. */
+  readonly flicker: boolean;
+  readonly quad: AtlasQuad;
+};
+
 export type DetailLayout = {
   readonly boxes: readonly DetailBox[];
   readonly beams: readonly DetailBeam[];
   readonly faces: readonly SignFace[];
+  /** Window glass, drawn after the faces (`withWindows`). */
+  readonly glass: readonly WindowGlass[];
 };
 
 /**
- * The atlas: 1024 x 512 px (inside the 1K budget). The rooftop sign across the top, the two
- * shop signs side by side below it, then a black patch that every plain part samples (so it
- * never glows), a faint red patch the skill-sign plates switch to while the cluster is
- * hovered, and a dim neon-reflection patch for the puddles.
+ * The atlas: 1024 x 1024 px (inside the 1K budget). The rooftop sign across the top, the
+ * two shop signs side by side below it, then a black patch that every plain part samples
+ * (so it never glows), a faint red patch the skill-sign plates switch to while the cluster
+ * is hovered, and a dim neon-reflection patch for the puddles. The bottom half holds the
+ * window cells (`WINDOW_CELLS`, task 20).
  */
 export const DETAIL_TEXTURE = {
   widthPx: 1024,
-  heightPx: 512,
+  heightPx: 1024,
   rects: {
     rooftop: { x: 0, y: 0, width: 1024, height: 224 },
     cafe: { x: 0, y: 224, width: 512, height: 128 },
@@ -74,6 +91,42 @@ export const DETAIL_TEXTURE = {
   widthPx: number;
   heightPx: number;
   rects: Record<SignId | "dark" | "plateLit" | "puddle", PixelRect>;
+};
+
+/** A window cell of the atlas: one look of lit, shaded, dark or broken glass. */
+export type WindowCellId =
+  | "lit-purple"
+  | "lit-red"
+  | "lit-cold"
+  | "blinds-purple"
+  | "blinds-red"
+  | "blinds-cold"
+  | "silhouette-purple"
+  | "silhouette-red"
+  | "silhouette-cold"
+  | "dark"
+  | "broken";
+
+const cell = (col: number, row: number): PixelRect => ({
+  x: col * 128,
+  y: 512 + row * 192,
+  width: 128,
+  height: 192,
+});
+
+/** The window cells, 128 x 192 px each (about a window's shape), under the signs. */
+export const WINDOW_CELLS: Readonly<Record<WindowCellId, PixelRect>> = {
+  "lit-purple": cell(0, 0),
+  "lit-red": cell(1, 0),
+  "lit-cold": cell(2, 0),
+  "blinds-purple": cell(3, 0),
+  "blinds-red": cell(4, 0),
+  "blinds-cold": cell(5, 0),
+  "silhouette-purple": cell(6, 0),
+  "silhouette-red": cell(7, 0),
+  "silhouette-cold": cell(0, 1),
+  dark: cell(1, 1),
+  broken: cell(2, 1),
 };
 
 /** Sizes in metres. Sign faces keep their atlas rectangle's aspect, so text isn't stretched. */
@@ -541,7 +594,12 @@ export function detailLayout(): DetailLayout {
     ...roof.beams,
   ];
 
-  return { boxes, beams, faces: [cafe.face, arcade.face, ...roof.faces] };
+  return {
+    boxes,
+    beams,
+    faces: [cafe.face, arcade.face, ...roof.faces],
+    glass: [],
+  };
 }
 
 /** Vertex data for the merged details mesh: the usual geometry plus the atlas UVs and shades. */
@@ -608,6 +666,29 @@ export function signPlateVertices(layout: DetailLayout): {
   if (first < 0) return { start: 0, count: 0 };
   const count = layout.boxes.length - first;
   return { start: first * VERTICES_PER_BOX, count: count * VERTICES_PER_BOX };
+}
+
+/**
+ * The first vertex of each window pane in `detailGeometryData`'s output (four each), so the
+ * scene can swap a flickering pane's atlas UVs. Panes come after boxes, beams and faces.
+ */
+export function glassVertexStarts(layout: DetailLayout): number[] {
+  const first =
+    layout.boxes.length * VERTICES_PER_BOX +
+    layout.beams.length * 16 +
+    layout.faces.length * 4;
+  return layout.glass.map((_, i) => first + i * 4);
+}
+
+/** The atlas coordinates of a rectangle's corners: bottom-left, bottom-right, top-right, top-left. */
+export function cornerUvs(rect: PixelRect): [number, number][] {
+  const uv = detailUv(rect);
+  return [
+    [uv.uMin, uv.vMin],
+    [uv.uMax, uv.vMin],
+    [uv.uMax, uv.vMax],
+    [uv.uMin, uv.vMax],
+  ];
 }
 
 /** The atlas coordinates of a rectangle's centre. */
@@ -708,6 +789,20 @@ export function detailGeometryData(
     quad.corners.forEach((c, i) => {
       positions.push(c.x, c.y, c.z);
       normals.push(quad.normal.x, quad.normal.y, quad.normal.z);
+      uvs.push(0, 0);
+      atlasUvs.push(...(corners[i] ?? dark));
+      shade("face");
+    });
+    indices.push(first, first + 1, first + 2, first, first + 2, first + 3);
+  }
+
+  // Window panes: black under their glow, like the sign faces.
+  for (const pane of layout.glass) {
+    const first = positions.length / 3;
+    const corners = cornerUvs(WINDOW_CELLS[pane.cell]);
+    pane.quad.corners.forEach((c, i) => {
+      positions.push(c.x, c.y, c.z);
+      normals.push(pane.quad.normal.x, pane.quad.normal.y, pane.quad.normal.z);
       uvs.push(0, 0);
       atlasUvs.push(...(corners[i] ?? dark));
       shade("face");

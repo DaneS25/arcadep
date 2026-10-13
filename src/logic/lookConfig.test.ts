@@ -16,6 +16,7 @@ import {
   TONE_MAPPING,
   SURFACES,
   TERMINAL_LOOK,
+  WINDOW_LOOK,
   WISPS_LOOK,
   bloomLuma,
   fogFactor,
@@ -278,5 +279,38 @@ describe("look feedback (task 17): darker, purple instead of amber", () => {
     expect(TERMINAL_LOOK.emissiveIntensity).toBeLessThan(1.6);
     expect(GRAFFITI_LOOK.emissiveIntensity).toBeLessThan(0.35);
     expect(WISPS_LOOK.intensity).toBeLessThan(0.18);
+  });
+});
+
+describe("WINDOW_LOOK", () => {
+  const glow = (hex: string): number =>
+    (relativeLuminance(hex) ?? Number.NaN) * DETAILS_LOOK.emissiveIntensity;
+  const colours = [
+    ...Object.values(WINDOW_LOOK.lights).flatMap((l) => [l.glow, l.edge]),
+    WINDOW_LOOK.dark,
+    WINDOW_LOOK.sheen,
+    WINDOW_LOOK.shadow,
+    WINDOW_LOOK.crack,
+  ];
+
+  it("keeps every window colour dim, far under the bloom threshold", () => {
+    for (const hex of colours)
+      expect(glow(hex)).toBeLessThan(BLOOM.threshold / 4);
+  });
+
+  it("lights each kind of window brighter than dark glass", () => {
+    for (const light of Object.values(WINDOW_LOOK.lights))
+      expect(glow(light.glow)).toBeGreaterThan(4 * glow(WINDOW_LOOK.sheen));
+  });
+
+  it("has no yellow or amber light (purple, red and a cold blue-white only)", () => {
+    for (const light of Object.values(WINDOW_LOOK.lights)) {
+      const r = Number.parseInt(light.glow.slice(1, 3), 16);
+      const g = Number.parseInt(light.glow.slice(3, 5), 16);
+      const b = Number.parseInt(light.glow.slice(5, 7), 16);
+      // Yellow and amber have green well over blue; these never do.
+      expect(g).toBeLessThanOrEqual(b);
+      expect(Math.max(r, g, b)).toBeGreaterThan(0);
+    }
   });
 });

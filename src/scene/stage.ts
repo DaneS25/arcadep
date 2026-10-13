@@ -81,8 +81,9 @@ export function createStage(content: StageContent): Stage {
       details.setSignPlatesLit(id === "spot-left");
     },
     update(dtMs, reducedMotion, camera) {
-      // The cabinet's attract screen, the signs' flicker and the fog's drift.
+      // The cabinet's attract screen, the signs' and windows' flicker and the fog's drift.
       building.spots.update(dtMs, reducedMotion);
+      details.update(dtMs, reducedMotion);
       wisps.update(dtMs, reducedMotion, camera);
     },
     redrawText() {

@@ -16,9 +16,12 @@ import type { GeometryData } from "./boxGeometry";
 import type { InteractionSpot, Side, Vec3 } from "./buildingLayout";
 import {
   floorLevels,
+  glassRects,
+  pointOnSide,
   sideAzimuthRad,
   sideNormal,
   sideWidthM,
+  type WallRect,
 } from "./buildingLayout";
 import { spotFor, toLocal, toWorld } from "./cabinetLayout";
 import type { CameraPose } from "./cameraOrbit";
@@ -124,6 +127,12 @@ export type GraffitiLayout = {
   readonly pickArea: AtlasQuad;
   /** Its band of the atlas. */
   readonly wallRect: PixelRect;
+  /**
+   * The windows' glass and frames on this wall, in atlas pixels (task 20): wiped clear
+   * after the paint, so the graffiti stops at each frame and the glass stays clean. Doors
+   * and boarded windows are not in it; they get painted over.
+   */
+  readonly clearRects: readonly PixelRect[];
   readonly posters: readonly PosterPlacement[];
 };
 
@@ -285,7 +294,57 @@ export function graffitiLayout(
     });
   }
 
-  return { side, id: spot.id, spot, wall, pickArea, wallRect, posters };
+  const clearRects = glassRects(side).map((rect) =>
+    wallPixelRect(spot, wallRect, rect),
+  );
+
+  return {
+    side,
+    id: spot.id,
+    spot,
+    wall,
+    pickArea,
+    wallRect,
+    clearRects,
+    posters,
+  };
+}
+
+/**
+ * A rectangle on the wall as pixels of the tag layer (`wallRect`), widened to whole pixels
+ * and cut to the layer. The layer covers `TAG_AREA`, centred on the spot, `u` to the right
+ * as seen facing the wall and rows down from `TAG_AREA.topY`.
+ */
+export function wallPixelRect(
+  spot: InteractionSpot,
+  wallRect: PixelRect,
+  rect: WallRect,
+): PixelRect {
+  const across = (along: number): number =>
+    toLocal(spot, pointOnSide(spot.side, along, 0, 0)).across;
+  const pxPerM = wallRect.width / TAG_AREA.widthM;
+  const pyPerM = wallRect.height / (TAG_AREA.topY - TAG_AREA.bottomY);
+  const clampX = (x: number): number =>
+    Math.min(wallRect.x + wallRect.width, Math.max(wallRect.x, x));
+  const clampY = (y: number): number =>
+    Math.min(wallRect.y + wallRect.height, Math.max(wallRect.y, y));
+  const x0 = clampX(
+    Math.floor(
+      wallRect.x + (across(rect.minAlong) + TAG_AREA.widthM / 2) * pxPerM,
+    ),
+  );
+  const x1 = clampX(
+    Math.ceil(
+      wallRect.x + (across(rect.maxAlong) + TAG_AREA.widthM / 2) * pxPerM,
+    ),
+  );
+  const y0 = clampY(
+    Math.floor(wallRect.y + (TAG_AREA.topY - rect.maxY) * pyPerM),
+  );
+  const y1 = clampY(
+    Math.ceil(wallRect.y + (TAG_AREA.topY - rect.minY) * pyPerM),
+  );
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
 }
 
 /** Vertex data for atlas quads as one mesh, each mapped to its own atlas rectangle. */
