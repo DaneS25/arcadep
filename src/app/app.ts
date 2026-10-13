@@ -11,6 +11,7 @@ import { createEnvironment } from "@/scene/atmosphere/environment";
 import { createStage } from "@/scene/stage";
 import { SCENE_LABEL } from "@/ui/copy";
 import { renderCrtPanel } from "@/ui/crtPanel";
+import { renderProjectPanel } from "@/ui/projectPanel";
 import { renderSkillPanel } from "@/ui/skillPanel";
 import { createPanelLayer, placeholderPanel } from "@/ui/panelLayer";
 import {
@@ -85,11 +86,14 @@ export function startApp(
     reducedMotion.dispose();
   });
 
-  const { profile, skills } = options.content;
+  const { profile, skills, projects } = options.content;
   const stage = createStage({
     attract: { name: profile.name, title: profile.title },
     skills,
+    projects,
   });
+  // Thumbnails that loaded, by path; the Projects panel only shows those.
+  let thumbnails: ReadonlyMap<string, HTMLImageElement> = new Map();
   disposer.add(() => {
     stage.dispose();
   });
@@ -124,6 +128,10 @@ export function startApp(
     render: (side, doc) => {
       if (side === "front") return renderCrtPanel(profile.aboutPages, doc);
       if (side === "left") return renderSkillPanel(skills, doc);
+      if (side === "back")
+        return renderProjectPanel(projects, doc, (path) =>
+          thumbnails.has(path),
+        );
       return placeholderPanel(side, doc);
     },
   });
@@ -178,6 +186,7 @@ export function startApp(
   const assets = loadAssets(
     createAssetSources(manager, win.document),
     options.warn,
+    projects.map((project) => project.thumbnail),
   );
   // Disposer.add runs the step at once if the app was already disposed.
   void assets.then((loaded) => {
@@ -187,9 +196,12 @@ export function startApp(
       for (const map of Object.values(set.maps))
         if (map !== null) map.anisotropy = anisotropy;
     stage.applyTextures(loaded.textures);
+    thumbnails = loaded.thumbnails;
+    stage.building.spots.setThumbnails(loaded.thumbnails);
     // Fonts have settled (loaded or fallen back), so canvas text can use them.
     stage.redrawText();
     disposer.add(() => {
+      thumbnails = new Map();
       loaded.dispose();
     });
   });

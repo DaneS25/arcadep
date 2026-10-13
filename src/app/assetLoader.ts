@@ -1,4 +1,5 @@
 import {
+  ImageLoader,
   LoadingManager,
   RepeatWrapping,
   SRGBColorSpace,
@@ -32,6 +33,8 @@ export type LoadedFont = {
 export type LoadedAssets = {
   readonly textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>;
   readonly fonts: Readonly<Record<FontRole, LoadedFont>>;
+  /** Project thumbnails that loaded, by their site path. */
+  readonly thumbnails: ReadonlyMap<string, HTMLImageElement>;
   /** URLs of every asset that was missing or failed. */
   readonly missing: readonly string[];
   /** Disposes every texture that loaded. */
@@ -42,6 +45,7 @@ export type LoadedAssets = {
 export type AssetSources = {
   loadTexture(url: string): Promise<Texture | null>;
   loadFont(font: FontAsset): Promise<boolean>;
+  loadImage(url: string): Promise<HTMLImageElement | null>;
 };
 
 /** A `LoadingManager` that reports overall progress from 0 to 1. */
@@ -55,12 +59,13 @@ export function createLoadingManager(
   return manager;
 }
 
-/** Real sources: `TextureLoader` and the CSS Font Loading API, both tracked by `manager`. */
+/** Real sources: `TextureLoader`, `ImageLoader` and the CSS Font Loading API, all tracked by `manager`. */
 export function createAssetSources(
   manager: LoadingManager,
   doc: Document,
 ): AssetSources {
   const textureLoader = new TextureLoader(manager);
+  const imageLoader = new ImageLoader(manager);
   return {
     loadTexture(url) {
       return new Promise((resolve) => {
@@ -70,6 +75,20 @@ export function createAssetSources(
             texture.wrapS = RepeatWrapping;
             texture.wrapT = RepeatWrapping;
             resolve(texture);
+          },
+          undefined,
+          () => {
+            resolve(null);
+          },
+        );
+      });
+    },
+    loadImage(url) {
+      return new Promise((resolve) => {
+        imageLoader.load(
+          url,
+          (image) => {
+            resolve(image);
           },
           undefined,
           () => {
@@ -105,13 +124,14 @@ export function createAssetSources(
 }
 
 /**
- * Loads every optional asset in `public/assets/`. Never rejects: a missing or broken
- * file falls back (plain colour, system font) and all of them are reported in one
- * warning through `warn`.
+ * Loads every optional asset in `public/assets/`, plus the given project thumbnails.
+ * Never rejects: a missing or broken file falls back (plain colour, system font,
+ * generated poster) and all of them are reported in one warning through `warn`.
  */
 export async function loadAssets(
   sources: AssetSources,
   warn: (message: string) => void,
+  thumbnailUrls: readonly string[] = [],
 ): Promise<LoadedAssets> {
   const missing: string[] = [];
   const owned: Texture[] = [];
@@ -157,11 +177,25 @@ export async function loadAssets(
     metal: loadSet("metal"),
     grate: loadSet("grate"),
   };
+  const loadThumbnail = async (
+    url: string,
+  ): Promise<readonly [string, HTMLImageElement] | null> => {
+    const image = await sources.loadImage(url);
+    if (image === null) {
+      missing.push(url);
+      return null;
+    }
+    return [url, image];
+  };
+
   const fonts = {
     neon: loadFont(FONTS.neon),
     mono: loadFont(FONTS.mono),
     marker: loadFont(FONTS.marker),
   };
+  const thumbnails = Promise.all(
+    [...new Set(thumbnailUrls)].map((url) => loadThumbnail(url)),
+  );
 
   const result: LoadedAssets = {
     textures: {
@@ -176,6 +210,7 @@ export async function loadAssets(
       mono: await fonts.mono,
       marker: await fonts.marker,
     },
+    thumbnails: new Map((await thumbnails).filter((entry) => entry !== null)),
     missing,
     dispose() {
       for (const texture of owned) texture.dispose();

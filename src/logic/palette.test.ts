@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { contrastRatio } from "./contrast";
 import { PALETTE, paletteCssVars } from "./palette";
 
 describe("paletteCssVars", () => {
@@ -17,11 +18,21 @@ describe("paletteCssVars", () => {
       { name: "--color-sidewalk", value: PALETTE.sidewalk },
       { name: "--color-cabinet", value: PALETTE.cabinet },
       { name: "--color-signPlate", value: PALETTE.signPlate },
+      { name: "--color-posterPaper", value: PALETTE.posterPaper },
     ]);
   });
 
   it("uses six-digit hex colours that CSS and three.js both accept", () => {
     for (const { value } of paletteCssVars())
       expect(value).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+describe("poster paper", () => {
+  it("keeps the posters' ink readable: title AA, tags at least 3:1", () => {
+    expect(contrastRatio(PALETTE.base, PALETTE.posterPaper)).toBeGreaterThan(
+      4.5,
+    );
+    expect(contrastRatio(PALETTE.trim, PALETTE.posterPaper)).toBeGreaterThan(3);
   });
 });
