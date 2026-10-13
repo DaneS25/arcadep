@@ -13,12 +13,16 @@ import { FONTS, fontStack, type TextureSlot } from "@/logic/assetManifest";
 import type { Box } from "@/logic/buildingLayout";
 import {
   DETAIL_TEXTURE,
+  WINDOW_CELLS,
   centreUv,
+  cornerUvs,
   detailGeometryData,
   detailLayout,
+  glassVertexStarts,
   signPlateVertices,
   withSignPlates,
   type SignId,
+  type WindowCellId,
 } from "@/logic/detailLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
@@ -27,8 +31,15 @@ import {
   surfaceMaterialParams,
   type SurfaceMaterialParams,
 } from "@/logic/lookConfig";
+import { FLICKER_CYCLE_MS } from "@/logic/neonFlicker";
 import { PALETTE } from "@/logic/palette";
+import {
+  dimmedWindow,
+  flickeringPanes,
+  withWindows,
+} from "@/logic/windowLayout";
 import { fitFont, glowText } from "../sides/canvasText";
+import { drawWindowCell } from "./windowCells";
 
 /** What the signs say: the rooftop shows the profile's name, the shop signs `content/signage`. */
 export type SignTexts = Readonly<Record<SignId, string>>;
@@ -41,6 +52,11 @@ export type Details = {
   ): void;
   /** Gives the skill signs' plates their faint red hover glow, or takes it off. */
   setSignPlatesLit(on: boolean): void;
+  /**
+   * Runs the flickering windows (task 20): now and then one cuts out for a moment, never
+   * more than 3 times a second; all steady under reduced motion.
+   */
+  update(dtMs: number, reducedMotion: boolean): void;
   /** Draws the signs again, for example once the fonts have loaded. */
   redraw(): void;
   dispose(): void;
@@ -119,6 +135,8 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
       neon,
     );
   drawPuddle(ctx, rects.puddle);
+  for (const [id, rect] of Object.entries(WINDOW_CELLS))
+    drawWindowCell(ctx, id as WindowCellId, rect);
   // The sign plates' hover glow: red at the plates' old highlight strength once the
   // material's emissive intensity is applied (worked out in linear light).
   ctx.fillStyle = new Color(PALETTE.accent)
@@ -140,7 +158,9 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
  * the first UV set; the sign text and the puddles' glow through the second, from one
  * 1024 x 512 canvas used as the emissive map. Not pickable. The skill signs' backing
  * plates (`signPlates`) join it too (task 15); their hover glow swaps their atlas UVs to
- * a red patch, so it needs no second material.
+ * a red patch, so it needs no second material. The windows and doors join it too (task 20):
+ * frames, planks and doors as shaded boxes, and each pane a quad on its window cell of the
+ * atlas (now 1024 x 1024); a flickering pane cuts out by pointing at the dark cell.
  */
 export function createDetails(
   texts: SignTexts,
@@ -148,7 +168,10 @@ export function createDetails(
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  const layout = withSignPlates(detailLayout(), signPlates);
+  // Windows and doors join before the sign plates, which must stay last among the boxes.
+  const layout = withSignPlates(withWindows(detailLayout()), signPlates);
+  const paneStarts = glassVertexStarts(layout);
+  const flickering = flickeringPanes(layout.glass);
   const plates = signPlateVertices(layout);
   const data = detailGeometryData(layout, look.tileM, DETAILS_LOOK.shades);
   const geometry = new BufferGeometry();
@@ -160,6 +183,17 @@ export function createDetails(
   geometry.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
   const atlasUvs = new Float32BufferAttribute(data.atlasUvs, 2);
   let platesLit = false;
+  let flickerMs = 0;
+  let cutOut: number | undefined;
+  /** Points pane `index` (into `layout.glass`) at a window cell of the atlas. */
+  const setPaneCell = (index: number, id: WindowCellId): void => {
+    const start = paneStarts[index];
+    if (start === undefined) return;
+    cornerUvs(WINDOW_CELLS[id]).forEach(([u, v], corner) => {
+      atlasUvs.setXY(start + corner, u, v);
+    });
+    atlasUvs.needsUpdate = true;
+  };
   geometry.setAttribute("uv1", atlasUvs);
   geometry.setAttribute("color", new Float32BufferAttribute(data.colors, 3));
   geometry.setIndex(data.indices);
@@ -223,6 +257,19 @@ export function createDetails(
       for (let i = plates.start; i < plates.start + plates.count; i += 1)
         atlasUvs.setXY(i, u, v);
       atlasUvs.needsUpdate = true;
+    },
+    update(dtMs, reducedMotion) {
+      // Kept within one flicker cycle, so it never grows without bound.
+      flickerMs = (flickerMs + Math.max(0, dtMs)) % FLICKER_CYCLE_MS;
+      const next = dimmedWindow(flickerMs, flickering.length, reducedMotion);
+      if (next === cutOut) return;
+      const restore = cutOut === undefined ? undefined : flickering[cutOut];
+      const pane = restore === undefined ? undefined : layout.glass[restore];
+      if (restore !== undefined && pane !== undefined)
+        setPaneCell(restore, pane.cell);
+      cutOut = next;
+      const dim = next === undefined ? undefined : flickering[next];
+      if (dim !== undefined) setPaneCell(dim, "dark");
     },
     redraw,
     dispose() {

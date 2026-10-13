@@ -35,6 +35,9 @@ const SHADES: DetailShades = {
   puddle: 0.05,
   face: 0,
   signPlate: 0.08,
+  frame: 0.2,
+  board: 0.4,
+  door: 0.3,
 };
 
 function corners(box: Box): Vec3[] {
@@ -267,7 +270,7 @@ describe("DETAIL_TEXTURE", () => {
   });
 
   it("maps a pixel rectangle to texture coordinates with v up", () => {
-    expect(detailUv({ x: 0, y: 0, width: 1024, height: 256 })).toEqual({
+    expect(detailUv({ x: 0, y: 0, width: 1024, height: 512 })).toEqual({
       uMin: 0,
       uMax: 1,
       vMin: 0.5,

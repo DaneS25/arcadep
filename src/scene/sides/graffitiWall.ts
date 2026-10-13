@@ -424,6 +424,9 @@ export function createGraffitiWall(
     for (const buff of art.buffs) drawBuff(ctx, layout.wallRect, buff);
     for (const tag of art.tags)
       drawTag(ctx, layout.wallRect, tag, fonts.marker);
+    // The windows' glass stays clean: the paint stops at their frames (task 20).
+    for (const r of layout.clearRects)
+      ctx.clearRect(r.x, r.y, r.width, r.height);
     shown.forEach((project, i) => {
       const poster = layout.posters[i];
       if (poster === undefined) return;

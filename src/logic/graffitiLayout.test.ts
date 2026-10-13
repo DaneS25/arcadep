@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   floorLevels,
+  glassRects,
   interactionSpots,
+  openingRect,
+  wallOpenings,
   sideNormal,
   sideWidthM,
   type Vec3,
@@ -293,5 +296,71 @@ describe("posterGlowScale", () => {
 
   it("leaves the glow alone when the base intensity is zero", () => {
     expect(posterGlowScale(true, 0, 0.5)).toBe(1);
+  });
+});
+
+describe("clearRects", () => {
+  const layout = graffitiLayout(4, 7);
+  const wall = layout.wallRect;
+  const pxPerM = wall.width / TAG_AREA.widthM;
+  const pyPerM = wall.height / (TAG_AREA.topY - TAG_AREA.bottomY);
+  /** A pixel of the tag layer back on the wall: along it (facing it) and up. */
+  const toWall = (x: number, y: number): { along: number; y: number } => ({
+    along: (x - wall.x) / pxPerM - TAG_AREA.widthM / 2,
+    y: TAG_AREA.topY - (y - wall.y) / pyPerM,
+  });
+  const inside = (along: number, y: number): boolean =>
+    layout.clearRects.some((r) => {
+      const a = toWall(r.x, r.y + r.height);
+      const b = toWall(r.x + r.width, r.y);
+      return along > a.along && along < b.along && y > a.y && y < b.y;
+    });
+
+  it("clears every glass window's frame on the back wall, and only that", () => {
+    const glass = glassRects("back");
+    expect(glass.length).toBeGreaterThan(0);
+    expect(layout.clearRects).toHaveLength(glass.length);
+    layout.clearRects.forEach((r, i) => {
+      const frame = glass[i];
+      if (frame === undefined) throw new Error("no frame");
+      // Inside the tag layer's band of the atlas.
+      expect(r.x).toBeGreaterThanOrEqual(wall.x);
+      expect(r.y).toBeGreaterThanOrEqual(wall.y);
+      expect(r.x + r.width).toBeLessThanOrEqual(wall.x + wall.width);
+      expect(r.y + r.height).toBeLessThanOrEqual(wall.y + wall.height);
+      // Covers the frame, give or take one pixel for rounding outwards.
+      const lo = toWall(r.x, r.y + r.height);
+      const hi = toWall(r.x + r.width, r.y);
+      const px = 1 / pxPerM + EPS;
+      const py = 1 / pyPerM + EPS;
+      expect(lo.along).toBeLessThanOrEqual(frame.minAlong + EPS);
+      expect(lo.along).toBeGreaterThan(frame.minAlong - px);
+      expect(hi.along).toBeGreaterThanOrEqual(frame.maxAlong - EPS);
+      expect(hi.along).toBeLessThan(frame.maxAlong + px);
+      expect(lo.y).toBeLessThanOrEqual(frame.minY + EPS);
+      expect(lo.y).toBeGreaterThan(frame.minY - py);
+      // The second storey's windows reach past the paint's top edge: cut there.
+      const top = Math.min(frame.maxY, TAG_AREA.topY);
+      expect(hi.y).toBeGreaterThanOrEqual(top - EPS);
+      expect(hi.y).toBeLessThan(top + py);
+    });
+  });
+
+  it("leaves the paint on the doors, the boarded windows, the sills and the posters", () => {
+    const painted = wallOpenings().filter(
+      (o) => o.side === "back" && (o.kind === "door" || o.look === "boarded"),
+    );
+    expect(painted.length).toBeGreaterThan(0);
+    for (const o of painted) {
+      const r = openingRect(o);
+      expect(inside(o.alongM, (r.minY + r.maxY) / 2)).toBe(false);
+    }
+    // Just under each window's frame (its sill) stays painted.
+    for (const frame of glassRects("back"))
+      expect(
+        inside((frame.minAlong + frame.maxAlong) / 2, frame.minY - 0.05),
+      ).toBe(false);
+    for (const poster of layout.posters)
+      expect(inside(poster.across, poster.centre.y)).toBe(false);
   });
 });

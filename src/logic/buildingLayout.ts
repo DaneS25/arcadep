@@ -353,3 +353,228 @@ export function interactionSpots(): InteractionSpot[] {
     };
   });
 }
+
+/**
+ * Windows and doors (task 20). Each opening is a rectangle on one side's wall, measured as
+ * the other wall props are: `alongM` to the right of the wall's centre (as seen facing it)
+ * and `bottomY` up from the ground. The rectangle is the opening's outer frame, so anything
+ * painted or mounted on the wall keeps out of it. The scene builds them in the details mesh
+ * (`logic/windowLayout.ts`); the graffiti leaves the back wall's glass clear.
+ */
+export type WindowLook =
+  /** Lit from inside. */
+  | "lit"
+  /** Lit, through half-closed blinds. */
+  | "blinds"
+  /** Lit, with someone (or something) standing in it. */
+  | "silhouette"
+  /** Unlit glass. */
+  | "dark"
+  /** Cracked and holed glass, unlit. */
+  | "broken"
+  /** Planks over dark glass; the graffiti paints over them. */
+  | "boarded";
+
+/** The colour of the light inside: dim purple, dim red or a cold fluorescent white-blue. */
+export type WindowLight = "purple" | "red" | "cold";
+
+export type DoorKind = "shop" | "back" | "fireEscape";
+
+export type WallOpening = {
+  readonly kind: "window" | "door";
+  /** What sort of door it is (doors only). */
+  readonly door?: DoorKind;
+  readonly side: Side;
+  /** Floor index, ground floor 0. */
+  readonly floor: number;
+  readonly alongM: number;
+  readonly bottomY: number;
+  readonly widthM: number;
+  readonly heightM: number;
+  /** A door's look is its glass panel's, if it has one (the shop door). */
+  readonly look: WindowLook;
+  readonly light: WindowLight;
+  /** A tired fluorescent tube that now and then cuts out (never over 3 times a second). */
+  readonly flicker: boolean;
+};
+
+export const WINDOW = {
+  /** An ordinary upper-floor window, frame included. */
+  widthM: 1.1,
+  heightM: 1.6,
+  /** Shop and ground-floor windows are taller. */
+  groundHeightM: 2,
+  /** Bottom of a window above its floor's base. */
+  sillAboveFloorM: 1,
+  /** Ground floor: above the pavement (or the alley floor). */
+  groundSillAboveFloorM: 0.75,
+  /** Frame border round the glass, and how far the frame stands off the wall. */
+  frameM: 0.08,
+  frameDepthM: 0.04,
+  /** Sill under the frame: overhang each side, height and depth off the wall. */
+  sillOverhangM: 0.08,
+  sillHeightM: 0.06,
+  sillDepthM: 0.12,
+} as const;
+
+export const DOOR = {
+  widthM: 1.1,
+  heightM: 2.3,
+} as const;
+
+type OpeningSpec = {
+  readonly widthM?: number;
+  readonly heightM?: number;
+  readonly light?: WindowLight;
+  readonly flicker?: boolean;
+};
+
+/** The ground under a ground-floor opening: the pavement, or the alley floor at the back. */
+function groundY(side: Side): number {
+  return side === "back" ? 0 : STREET.curbHeightM;
+}
+
+function windowAt(
+  side: Side,
+  floor: number,
+  alongM: number,
+  look: WindowLook,
+  spec: OpeningSpec = {},
+): WallOpening {
+  const ground = floor === 0;
+  const base = ground ? groundY(side) : (floorLevels()[floor]?.baseY ?? 0);
+  return {
+    kind: "window",
+    side,
+    floor,
+    alongM,
+    bottomY:
+      base + (ground ? WINDOW.groundSillAboveFloorM : WINDOW.sillAboveFloorM),
+    widthM: spec.widthM ?? WINDOW.widthM,
+    heightM: spec.heightM ?? (ground ? WINDOW.groundHeightM : WINDOW.heightM),
+    look,
+    light: spec.light ?? "purple",
+    flicker: spec.flicker ?? false,
+  };
+}
+
+function doorAt(
+  side: Side,
+  floor: number,
+  alongM: number,
+  door: DoorKind,
+  look: WindowLook,
+  spec: OpeningSpec = {},
+): WallOpening {
+  // On the pavement or the alley floor, or upstairs just over the floor band.
+  const bottomY =
+    floor === 0
+      ? groundY(side)
+      : (floorLevels()[floor]?.baseY ?? 0) + BUILDING.bandHeightM / 2;
+  return {
+    kind: "door",
+    door,
+    side,
+    floor,
+    alongM,
+    bottomY,
+    widthM: spec.widthM ?? DOOR.widthM,
+    heightM: spec.heightM ?? DOOR.heightM,
+    look,
+    light: spec.light ?? "purple",
+    flicker: false,
+  };
+}
+
+/**
+ * Every window and door round the building, side by side and floor by floor. Placed by
+ * hand round the props already on each wall (AC units, vents, pipes, signs, neon and the
+ * interaction spots); a test checks none of them overlap. The flickering windows are all on
+ * the right side, which never shares a view with the flickering skill signs on the left.
+ */
+export function wallOpenings(): WallOpening[] {
+  return [
+    // Front: the shop on the ground floor, then two floors of flats.
+    windowAt("front", 0, -4.9, "blinds", { widthM: 1.2 }),
+    windowAt("front", 0, -1.3, "lit", { widthM: 1.6, light: "red" }),
+    doorAt("front", 0, 0.6, "shop", "lit", { widthM: 1 }),
+    windowAt("front", 0, 2.6, "lit", { widthM: 2, light: "cold" }),
+    windowAt("front", 1, -4.5, "lit"),
+    windowAt("front", 1, -2.5, "dark"),
+    windowAt("front", 1, 0, "blinds", { light: "red" }),
+    windowAt("front", 1, 2.5, "silhouette", { light: "cold" }),
+    windowAt("front", 1, 4.5, "broken"),
+    windowAt("front", 2, -5.3, "dark", { widthM: 0.9 }),
+    windowAt("front", 2, -2.5, "lit", { light: "red" }),
+    windowAt("front", 2, 0, "boarded"),
+    windowAt("front", 2, 2.5, "blinds"),
+    windowAt("front", 2, 5.1, "silhouette", { widthM: 0.9 }),
+    // Left: round the skill signs on the first floor.
+    windowAt("left", 0, -3, "dark", { widthM: 1.2 }),
+    windowAt("left", 0, -0.6, "lit", { widthM: 1.4, light: "cold" }),
+    windowAt("left", 0, 4, "blinds", { light: "red" }),
+    windowAt("left", 1, -3.9, "silhouette", { widthM: 1 }),
+    windowAt("left", 1, 3.9, "dark", { widthM: 1 }),
+    windowAt("left", 2, -1.5, "lit"),
+    windowAt("left", 2, 0.6, "broken"),
+    windowAt("left", 2, 4.3, "blinds", { widthM: 0.9, light: "cold" }),
+    // Back: two back doors either side of the poster row, a fire-escape door, and windows
+    // that are mostly boarded or broken (the alley side gets the worst of it).
+    doorAt("back", 0, -4.75, "back", "dark", { widthM: 1 }),
+    doorAt("back", 0, 4.75, "back", "dark", { widthM: 1 }),
+    windowAt("back", 1, -4.6, "boarded", { widthM: 1 }),
+    windowAt("back", 1, -1.2, "lit", { light: "red" }),
+    windowAt("back", 1, 0.9, "broken"),
+    doorAt("back", 1, 4.5, "fireEscape", "dark", { widthM: 1, heightM: 2.1 }),
+    windowAt("back", 2, -3.4, "silhouette"),
+    windowAt("back", 2, 1.2, "dark"),
+    windowAt("back", 2, 5, "boarded", { widthM: 0.8 }),
+    // Right: the terminal's side door is its own prop (`terminalLayout`).
+    windowAt("right", 0, -2, "dark", { widthM: 1.4 }),
+    windowAt("right", 0, 3.9, "lit", {
+      widthM: 1.2,
+      light: "cold",
+      flicker: true,
+    }),
+    windowAt("right", 1, 0.8, "lit", { light: "cold", flicker: true }),
+    windowAt("right", 1, 2.8, "blinds"),
+    windowAt("right", 1, 4.4, "silhouette", { widthM: 0.8, light: "cold" }),
+    windowAt("right", 2, -3.9, "lit", { light: "cold", flicker: true }),
+    windowAt("right", 2, -1.6, "boarded"),
+    windowAt("right", 2, 0.6, "dark"),
+    windowAt("right", 2, 4.2, "blinds", { light: "red" }),
+  ];
+}
+
+/** A rectangle on one side's wall: along it (to the right, facing it) and up. */
+export type WallRect = {
+  readonly side: Side;
+  readonly minAlong: number;
+  readonly maxAlong: number;
+  readonly minY: number;
+  readonly maxY: number;
+};
+
+/** An opening's outer frame on its wall. */
+export function openingRect(opening: WallOpening): WallRect {
+  return {
+    side: opening.side,
+    minAlong: opening.alongM - opening.widthM / 2,
+    maxAlong: opening.alongM + opening.widthM / 2,
+    minY: opening.bottomY,
+    maxY: opening.bottomY + opening.heightM,
+  };
+}
+
+/**
+ * The frames of clear or lit glass on one side: every window but the boarded ones. The
+ * back wall's graffiti stops at these frames (task 19 review); doors and boarded windows
+ * get painted over.
+ */
+export function glassRects(side: Side): WallRect[] {
+  return wallOpenings()
+    .filter(
+      (o) => o.side === side && o.kind === "window" && o.look !== "boarded",
+    )
+    .map(openingRect);
+}
