@@ -1,8 +1,10 @@
 import {
   CanvasTexture,
   Color,
+  Float32BufferAttribute,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   SRGBColorSpace,
 } from "three";
@@ -14,9 +16,16 @@ import {
   atlasQuadGeometryData,
   graffitiLayout,
   posterAt,
+  posterGlowScale,
+  posterVertexFlags,
   type PixelRect,
 } from "@/logic/graffitiLayout";
-import { TAG_SEED, graffitiTags, type TagSpec } from "@/logic/graffitiTags";
+import {
+  TAG_SEED,
+  graffitiArt,
+  type BuffPatch,
+  type TagSpec,
+} from "@/logic/graffitiTags";
 import { GRAFFITI_LOOK } from "@/logic/lookConfig";
 import { seedFromText } from "@/logic/neonFlicker";
 import { PALETTE, type PaletteToken } from "@/logic/palette";
@@ -33,7 +42,13 @@ export type PosterProject = Pick<
 export type Thumbnails = ReadonlyMap<string, HTMLImageElement>;
 
 export type GraffitiWall = {
+  /** Everything drawn, plus the pick area. */
   readonly object: Group;
+  /**
+   * What picking registers as `spot-back`: an invisible quad over the poster row only, so
+   * a click on the graffiti higher up or along the wall does nothing (task 19).
+   */
+  readonly pickObject: Group;
   /**
    * The project whose poster is at a world point on the wall (a picking hit), as an index
    * into the projects given, or undefined between posters.
@@ -50,6 +65,51 @@ export type GraffitiWall = {
 /** Accent colour per poster, in turn. */
 const POSTER_ACCENTS: readonly PaletteToken[] = ["accent", "cyan", "violet"];
 
+/** A patch of flat paint rolled over the older graffiti, with roller marks. */
+function drawBuff(
+  ctx: CanvasRenderingContext2D,
+  band: PixelRect,
+  buff: BuffPatch,
+): void {
+  const w = buff.width * band.width;
+  const h = buff.height * band.height;
+  ctx.save();
+  ctx.translate(band.x + buff.x * band.width, band.y + buff.y * band.height);
+  ctx.rotate(buff.angleRad);
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = PALETTE[buff.color];
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  // Roller strokes: faint darker bands across the patch.
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = PALETTE.base;
+  for (let y = -h / 2; y < h / 2; y += 24) ctx.fillRect(-w / 2, y, w, 6);
+  ctx.restore();
+}
+
+function drawDrips(
+  ctx: CanvasRenderingContext2D,
+  tag: TagSpec,
+  size: number,
+  color: string,
+): void {
+  const width = ctx.measureText(tag.text).width;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(2, size * 0.05);
+  for (const drip of tag.drips) {
+    const x = drip.at * width;
+    const top = size * 0.25;
+    const bottom = top + drip.length * size;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, bottom, ctx.lineWidth * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawTag(
   ctx: CanvasRenderingContext2D,
   band: PixelRect,
@@ -58,6 +118,7 @@ function drawTag(
 ): void {
   const size = tag.size * band.height;
   const color = PALETTE[tag.color];
+  const outline = PALETTE[tag.outline];
   ctx.save();
   ctx.translate(band.x + tag.x * band.width, band.y + tag.y * band.height);
   ctx.rotate(tag.angleRad);
@@ -69,38 +130,44 @@ function drawTag(
   // Sprayed paint is never quite solid.
   ctx.globalAlpha = 0.88;
 
-  if (tag.style === "outline") {
-    ctx.lineWidth = size * 0.14;
-    ctx.strokeStyle = color;
-    ctx.strokeText(tag.text, 0, 0);
-    ctx.fillStyle = PALETTE.base;
-    ctx.fillText(tag.text, 0, 0);
-  } else {
-    ctx.lineWidth = size * 0.12;
-    ctx.strokeStyle = PALETTE.base;
-    ctx.strokeText(tag.text, 0, 0);
-    ctx.fillStyle = color;
-    ctx.fillText(tag.text, 0, 0);
+  switch (tag.style) {
+    case "throwup":
+      // Fat outline first, then the fill, then a thin dark line to split the letters.
+      ctx.lineWidth = size * 0.3;
+      ctx.strokeStyle = outline;
+      ctx.strokeText(tag.text, 0, 0);
+      ctx.fillStyle = color;
+      ctx.fillText(tag.text, 0, 0);
+      ctx.lineWidth = Math.max(1.5, size * 0.03);
+      ctx.strokeStyle = PALETTE.base;
+      ctx.strokeText(tag.text, 0, 0);
+      break;
+    case "outline":
+      ctx.lineWidth = size * 0.14;
+      ctx.strokeStyle = color;
+      ctx.strokeText(tag.text, 0, 0);
+      ctx.fillStyle = PALETTE.base;
+      ctx.fillText(tag.text, 0, 0);
+      break;
+    case "scrawl":
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = Math.max(1, size * 0.06);
+      ctx.strokeStyle = color;
+      ctx.strokeText(tag.text, 0, 0);
+      ctx.fillStyle = color;
+      ctx.fillText(tag.text, 0, 0);
+      break;
+    case "fill":
+    case "drip":
+      ctx.lineWidth = size * 0.12;
+      ctx.strokeStyle = outline;
+      ctx.strokeText(tag.text, 0, 0);
+      ctx.fillStyle = color;
+      ctx.fillText(tag.text, 0, 0);
+      break;
   }
 
-  if (tag.drips.length > 0) {
-    const width = ctx.measureText(tag.text).width;
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = Math.max(2, size * 0.05);
-    for (const drip of tag.drips) {
-      const x = drip.at * width;
-      const top = size * 0.25;
-      const bottom = top + drip.length * size;
-      ctx.beginPath();
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(x, bottom, ctx.lineWidth * 0.8, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+  if (tag.drips.length > 0) drawDrips(ctx, tag, size, color);
   ctx.restore();
 }
 
@@ -248,10 +315,12 @@ function drawPoster(
 }
 
 /**
- * The back side's graffiti alley: procedural tags across the back spot and a paste-up
- * poster per project over them. The tags and every poster share one atlas canvas texture
- * and merge into one mesh (one draw call). The wall is picked as `spot-back` and glows a
- * little brighter on hover. Thumbnails come in after loading; until then (or if one is
+ * The back side's graffiti alley: layered procedural graffiti over the whole back wall up
+ * into the second storey (task 19) and a paste-up poster per project on the ground floor.
+ * The graffiti and every poster share one atlas canvas texture and merge into one mesh (one
+ * draw call). Only the poster row is picked as `spot-back` (an invisible quad, never
+ * drawn), and only the posters glow brighter on hover: a per-vertex poster flag and a
+ * `posterGlow` uniform patched into the standard material, so still one draw call. Thumbnails come in after loading; until then (or if one is
  * missing) a poster shows a generated placeholder.
  */
 export function createGraffitiWall(
@@ -263,7 +332,7 @@ export function createGraffitiWall(
     seedFromText(projects.map((p) => p.id).join("|")),
   );
   const shown = projects.slice(0, layout.posters.length);
-  const tags = graffitiTags(TAG_SEED);
+  const art = graffitiArt(TAG_SEED);
   let thumbnails: Thumbnails = new Map();
 
   const canvas = doc.createElement("canvas");
@@ -289,13 +358,60 @@ export function createGraffitiWall(
     transparent: true,
     alphaTest: GRAFFITI_LOOK.alphaTest,
   });
+  geometry.setAttribute(
+    "poster",
+    new Float32BufferAttribute(posterVertexFlags(layout), 1),
+  );
+  // Scales the emissive light of flagged (poster) vertices only; set on hover.
+  const posterGlow = { value: 1 };
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.posterGlow = posterGlow;
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        [
+          "#include <common>",
+          "attribute float poster;",
+          "varying float vPoster;",
+        ].join("\n"),
+      )
+      .replace(
+        "#include <begin_vertex>",
+        ["#include <begin_vertex>", "vPoster = poster;"].join("\n"),
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        [
+          "#include <common>",
+          "uniform float posterGlow;",
+          "varying float vPoster;",
+        ].join("\n"),
+      )
+      .replace(
+        "#include <emissivemap_fragment>",
+        [
+          "#include <emissivemap_fragment>",
+          "totalEmissiveRadiance *= mix(1.0, posterGlow, vPoster);",
+        ].join("\n"),
+      );
+  };
+  material.customProgramCacheKey = () => "graffiti-poster-glow";
   const mesh = new Mesh(geometry, material);
   mesh.name = "graffiti";
 
+  const pickGeometry = toGeometry(atlasQuadGeometryData([layout.pickArea]));
+  const pickMaterial = new MeshBasicMaterial({ visible: false });
+  const pickMesh = new Mesh(pickGeometry, pickMaterial);
+  pickMesh.name = "graffiti-posters-pick";
+  const pickGroup = new Group();
+  pickGroup.name = layout.id;
+  pickGroup.userData = { spotId: layout.id, side: layout.side };
+  pickGroup.add(pickMesh);
+
   const group = new Group();
-  group.name = layout.id;
-  group.userData = { spotId: layout.id, side: layout.side };
-  group.add(mesh);
+  group.name = "graffiti-wall";
+  group.add(mesh, pickGroup);
 
   const redraw = (): void => {
     if (ctx === null) return;
@@ -305,7 +421,9 @@ export function createGraffitiWall(
       neon: fontStack(FONTS.neon, true),
     };
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const tag of tags) drawTag(ctx, layout.wallRect, tag, fonts.marker);
+    for (const buff of art.buffs) drawBuff(ctx, layout.wallRect, buff);
+    for (const tag of art.tags)
+      drawTag(ctx, layout.wallRect, tag, fonts.marker);
     shown.forEach((project, i) => {
       const poster = layout.posters[i];
       if (poster === undefined) return;
@@ -325,12 +443,15 @@ export function createGraffitiWall(
 
   return {
     object: group,
+    pickObject: pickGroup,
     // Posters show the first projects in order, so a poster's index is its project's.
     posterAt: (point) => posterAt(layout, point),
     setHighlighted(on) {
-      material.emissiveIntensity = on
-        ? GRAFFITI_LOOK.litEmissiveIntensity
-        : GRAFFITI_LOOK.emissiveIntensity;
+      posterGlow.value = posterGlowScale(
+        on,
+        GRAFFITI_LOOK.emissiveIntensity,
+        GRAFFITI_LOOK.litEmissiveIntensity,
+      );
     },
     setThumbnails(next) {
       thumbnails = next;
@@ -340,8 +461,11 @@ export function createGraffitiWall(
     dispose() {
       group.clear();
       thumbnails = new Map();
+      pickGroup.clear();
       geometry.dispose();
       material.dispose();
+      pickGeometry.dispose();
+      pickMaterial.dispose();
       texture.dispose();
       canvas.width = 0;
       canvas.height = 0;

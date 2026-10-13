@@ -146,12 +146,24 @@ describe("the posters' close-up", () => {
   const camera = posePosition(pose);
   const alley = alleyWallBox();
 
-  it("hangs over the alley, above the alley wall, and looks down at the posters", () => {
-    const alleyFace = alley.centre.z + alley.size.z / 2;
-    expect(camera.z).toBeGreaterThan(alleyFace);
-    expect(camera.z).toBeLessThan(-BUILDING.depthM / 2 - 2);
-    expect(camera.y).toBeGreaterThan(STREET.alleyWallHeightM + 1);
-    expect(camera.y).toBeLessThan(STREET.alleyWallHeightM + 3);
+  it("stands back past the low alley wall, above it, and sees every poster over it", () => {
+    const farFace = alley.centre.z - alley.size.z / 2;
+    expect(camera.z).toBeLessThan(farFace);
+    expect(camera.z).toBeGreaterThan(-BUILDING.depthM / 2 - 9);
+    expect(camera.y).toBeGreaterThan(STREET.alleyWallHeightM + 3);
+    expect(camera.y).toBeLessThan(8);
+    // A sight line to each poster corner clears the low wall's top.
+    const layout = graffitiLayout(8, 1);
+    for (const corner of layout.posters.flatMap((p) => p.quad.corners)) {
+      for (let t = 0.05; t < 1; t += 0.05) {
+        const p = {
+          x: camera.x + (corner.x - camera.x) * t,
+          y: camera.y + (corner.y - camera.y) * t,
+          z: camera.z + (corner.z - camera.z) * t,
+        };
+        expect(inside(alley, p, 0.05)).toBe(false);
+      }
+    }
   });
 
   it("frames a three-poster row centred behind the centred panel on a 16:9 window", () => {

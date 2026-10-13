@@ -41,7 +41,11 @@ export const STREET = {
   curbHeightM: 0.15,
   /** Gap between the back wall and the wall across the alley. */
   alleyWidthM: 4,
-  alleyWallHeightM: 5,
+  /**
+   * A low, waist-high wall across the alley (task 19): the 5 m wall it replaced hid the
+   * graffiti from the street side, but a kerb wall still closes the alley off.
+   */
+  alleyWallHeightM: 1.1,
   alleyWallThicknessM: 0.4,
   /** How far the alley wall runs past each side of the building. */
   alleyWallOverrunM: 4,
@@ -238,7 +242,7 @@ export function alleyRect(): Rect {
   };
 }
 
-/** The wall across the alley from the building's back. */
+/** The low wall across the alley from the building's back. */
 export function alleyWallBox(): Box {
   const alley = alleyRect();
   const t = STREET.alleyWallThicknessM;
@@ -316,7 +320,7 @@ const SPOT_PLACEMENTS: Readonly<Record<Side, SpotPlacement>> = {
     gapM: 0.1,
     size: { x: 5, y: 3, z: 0.2 },
   },
-  // Graffiti and project posters on the ground floor of the alley wall.
+  // Project posters on the ground floor of the back wall (the graffiti spreads round them).
   back: {
     alongM: 0,
     bottomY: 0.6,

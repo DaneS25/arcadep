@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BUILDING,
+  STREET,
+  alleyWallBox,
   interactionSpots,
   sideNormal,
   sidewalkRect,
@@ -12,6 +14,7 @@ import { skillSignsLayout } from "./skillSignsLayout";
 import {
   DETAIL_SIZES,
   DETAIL_TEXTURE,
+  POLE,
   detailGeometryData,
   detailLayout,
   detailUv,
@@ -117,6 +120,36 @@ describe("detailLayout", () => {
     expect(new Set(layout.faces.map((f) => f.sign))).toEqual(
       new Set(["rooftop", "cafe", "arcade"]),
     );
+  });
+
+  it("hangs the alley's cables from utility poles standing in the low alley wall", () => {
+    const wall = alleyWallBox();
+    const poles = layout.boxes.filter(
+      ({ box }) => Math.abs(box.size.y - POLE.heightM) < EPS,
+    );
+    expect(poles).toHaveLength(POLE.alongM.length);
+    for (const { box } of poles) {
+      expect(box.centre.y - box.size.y / 2).toBeCloseTo(0);
+      expect(Math.abs(box.centre.z - wall.centre.z)).toBeLessThan(
+        wall.size.z / 2,
+      );
+      expect(box.size.y).toBeGreaterThan(STREET.alleyWallHeightM * 5);
+    }
+    const alleyEnds = layout.beams
+      .filter((b) => b.kind === "cable")
+      .flatMap((b) => [b.from, b.to])
+      // Cable points reaching across to the far side of the alley.
+      .filter((p) => p.z < wall.centre.z + wall.size.z / 2 + 0.2);
+    expect(alleyEnds.length).toBeGreaterThan(0);
+    for (const end of alleyEnds) {
+      const onPole = poles.some(
+        ({ box }) =>
+          Math.abs(end.x - box.centre.x) <= box.size.x / 2 + EPS &&
+          Math.abs(end.z - box.centre.z) <= box.size.z / 2 + 0.01 &&
+          end.y <= box.size.y,
+      );
+      expect(onPole).toBe(true);
+    }
   });
 
   it("keeps every prop out of the building's walls and off the interaction spots", () => {
