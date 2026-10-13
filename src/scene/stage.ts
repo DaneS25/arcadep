@@ -1,12 +1,14 @@
-import { Color, FogExp2, Scene, type Texture } from "three";
+import { Color, FogExp2, Scene, type Camera, type Texture } from "three";
 import type { TextureSet } from "@/logic/assetFallback";
 import type { TextureSlot } from "@/logic/assetManifest";
 import { ENVIRONMENT, FOG } from "@/logic/lookConfig";
 import { PALETTE } from "@/logic/palette";
+import { skillSignsLayout } from "@/logic/skillSignsLayout";
+import { createFogWisps } from "./atmosphere/fogWisps";
 import { createLights } from "./atmosphere/lights";
 import { createNeonTubes } from "./atmosphere/neon";
 import { createBuilding, type Building } from "./building/building";
-import type { SpotsContent } from "./building/spots";
+import type { SpotMarker, SpotsContent } from "./building/spots";
 import { createGround } from "./ground";
 import { createDetails, type SignTexts } from "./props/details";
 
@@ -22,16 +24,21 @@ export type Stage = {
   ): void;
   /** Sets the baked neon environment that smooth surfaces reflect. */
   setEnvironment(texture: Texture | null): void;
-  /** Moves animated props on by `dtMs`; under reduced motion nothing blinks. */
-  update(dtMs: number, reducedMotion: boolean): void;
+  /** Lights up one side's prop (hovered or focused), or none. */
+  setHighlighted(id: SpotMarker["id"] | undefined): void;
+  /**
+   * Moves animated props and the fog wisps on by `dtMs` (nothing blinks and the wisps hold
+   * still under reduced motion), and turns the wisps to face `camera`.
+   */
+  update(dtMs: number, reducedMotion: boolean, camera: Camera): void;
   /** Redraws canvas text (signs, screens) once the fonts have loaded. */
   redrawText(): void;
   dispose(): void;
 };
 
 /**
- * The night street corner: fog, lights, the wet street, the building, its neon and its
- * detail props (task 14).
+ * The night street corner: fog and drifting wisps (task 15), lights, the wet street, the
+ * building, its neon and its detail props (task 14).
  */
 export function createStage(content: StageContent): Stage {
   const scene = new Scene();
@@ -43,13 +50,19 @@ export function createStage(content: StageContent): Stage {
   const ground = createGround();
   const building = createBuilding(content);
   const neon = createNeonTubes();
-  const details = createDetails(content.signs);
+  // The skill signs' plates are drawn by the details mesh, which saves a draw call.
+  const signPlates = skillSignsLayout(content.skills.length).signs.map(
+    (sign) => sign.plate,
+  );
+  const details = createDetails(content.signs, signPlates);
+  const wisps = createFogWisps();
   scene.add(
     lights.object,
     ground.object,
     building.object,
     neon.object,
     details.object,
+    wisps.object,
   );
 
   return {
@@ -63,9 +76,14 @@ export function createStage(content: StageContent): Stage {
     setEnvironment(texture) {
       scene.environment = texture;
     },
-    update(dtMs, reducedMotion) {
-      // The cabinet's attract screen and the signs' flicker; fog drift is task 15.
+    setHighlighted(id) {
+      building.spots.setHighlighted(id);
+      details.setSignPlatesLit(id === "spot-left");
+    },
+    update(dtMs, reducedMotion, camera) {
+      // The cabinet's attract screen, the signs' flicker and the fog's drift.
       building.spots.update(dtMs, reducedMotion);
+      wisps.update(dtMs, reducedMotion, camera);
     },
     redrawText() {
       building.spots.redrawText();
@@ -79,6 +97,7 @@ export function createStage(content: StageContent): Stage {
       building.dispose();
       neon.dispose();
       details.dispose();
+      wisps.dispose();
     },
   };
 }

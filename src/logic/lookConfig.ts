@@ -130,13 +130,14 @@ export const CABINET_LOOK = {
 
 /** The neon skill signs on the left side (task 11). */
 export const SIGNS_LOOK = {
-  plateRoughness: 0.6,
-  plateMetalness: 0.2,
   /** Sign faces: atlas colour times this; the tubes pass the bloom threshold, the plates don't. */
   faceIntensity: 1.3,
   /** Brighter faces while the cluster is hovered or focused. */
   litFaceIntensity: 2.1,
-  /** Red glow on the plates while hovered or focused. */
+  /**
+   * Red glow on the plates while hovered or focused. The plates are part of the details
+   * mesh since task 15, which draws this through its atlas.
+   */
   highlightEmissive: 0.25,
 } as const;
 
@@ -187,6 +188,9 @@ export const DETAILS_LOOK = {
     // About the street's own colour, so a puddle is a smear of reflected neon, not a hole.
     puddle: 0.3,
     face: 0,
+    // The skill-sign plates (task 15): the old plain plate colour (`signPlate`) over `prop`,
+    // in linear light, so merging them into the details mesh keeps their look.
+    signPlate: 0.09,
   },
   emissiveIntensity: 1.4,
   /**
@@ -212,6 +216,20 @@ export const FOG = {
   color: PALETTE.base,
   /** `FogExp2` density per metre. */
   density: 0.016,
+} as const;
+
+/**
+ * The drifting fog wisps (task 15): soft pale blobs added on top of the scene (additive),
+ * so they lighten the dark like lit mist and never need sorting. Kept far under the bloom
+ * threshold, even where a few overlap, so fog never glows.
+ */
+export const WISPS_LOOK = {
+  /** A cool, pale grey: mist lit by the street and the neon. */
+  color: "#9aa0b8",
+  /** Brightest a wisp gets (its colour times this, times its own strength). */
+  intensity: 0.18,
+  /** Side of the generated wisp texture, in pixels. */
+  texturePx: 128,
 } as const;
 
 export const TONE_MAPPING = {

@@ -4,7 +4,6 @@ import {
   Group,
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
   SRGBColorSpace,
 } from "three";
 import type { Skill } from "@/content/types";
@@ -103,8 +102,9 @@ function drawAtlas(
 
 /**
  * The left side's cluster of neon skill signs: one atlas canvas texture with a cell per
- * skill, every sign face merged into one mesh (one draw call) and every backing plate into
- * another. The flicker dims one sign at a time through vertex colours, so no texture
+ * skill and every sign face merged into one mesh (one draw call). The backing plates are
+ * drawn by the details mesh (`scene/props/details.ts`); here they're only a hidden picking
+ * shape. The flicker dims one sign at a time through vertex colours, so no texture
  * redraws. The whole cluster is picked as `spot-left` and lights up together on hover.
  */
 export function createNeonSigns(
@@ -121,16 +121,11 @@ export function createNeonSigns(
       1,
     ),
   );
-  const plate = new MeshStandardMaterial({
-    color: PALETTE.signPlate,
-    roughness: SIGNS_LOOK.plateRoughness,
-    metalness: SIGNS_LOOK.plateMetalness,
-  });
-  const plateLit = plate.clone();
-  plateLit.emissive.set(PALETTE.accent);
-  plateLit.emissiveIntensity = SIGNS_LOOK.highlightEmissive;
-  const plateMesh = new Mesh(plateGeometry, plate);
-  plateMesh.name = "sign-plates";
+  // The plates are drawn by the merged details mesh (task 15, one draw call fewer); this
+  // copy is never drawn and only keeps the whole plate area pickable as the cluster.
+  const pickMaterial = new MeshBasicMaterial({ visible: false });
+  const plateMesh = new Mesh(plateGeometry, pickMaterial);
+  plateMesh.name = "sign-plates-pick";
 
   const canvas = doc.createElement("canvas");
   canvas.width = layout.atlas.widthPx;
@@ -183,7 +178,7 @@ export function createNeonSigns(
   return {
     object: group,
     setHighlighted(on) {
-      plateMesh.material = on ? plateLit : plate;
+      // The plates' red glow is the details mesh's (`Details.setSignPlatesLit`).
       faceMaterial.color.setScalar(
         on ? SIGNS_LOOK.litFaceIntensity : SIGNS_LOOK.faceIntensity,
       );
@@ -200,8 +195,7 @@ export function createNeonSigns(
     dispose() {
       group.clear();
       plateGeometry.dispose();
-      plate.dispose();
-      plateLit.dispose();
+      pickMaterial.dispose();
       faceGeometry.dispose();
       faceMaterial.dispose();
       texture.dispose();

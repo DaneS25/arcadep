@@ -12,6 +12,7 @@ import {
   NEON_LIGHTS,
   SURFACES,
   TERMINAL_LOOK,
+  WISPS_LOOK,
   fogFactor,
   surfaceMaterialParams,
 } from "./lookConfig";
@@ -168,5 +169,23 @@ describe("DETAILS_LOOK", () => {
       expect(shade).toBeGreaterThanOrEqual(0);
       expect(shade).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe("merged sign plates", () => {
+  it("keep the plain plate colour inside the details mesh", () => {
+    const plate = relativeLuminance(PALETTE.signPlate) ?? Number.NaN;
+    const prop = relativeLuminance(PALETTE.prop) ?? Number.NaN;
+    expect(DETAILS_LOOK.shades.signPlate).toBeCloseTo(plate / prop, 1);
+  });
+});
+
+describe("WISPS_LOOK", () => {
+  it("keeps even three overlapping wisps far under the bloom threshold", () => {
+    const one =
+      (relativeLuminance(WISPS_LOOK.color) ?? Number.NaN) *
+      WISPS_LOOK.intensity;
+    expect(one).toBeGreaterThan(0);
+    expect(3 * one).toBeLessThan(BLOOM.threshold / 4);
   });
 });

@@ -10,15 +10,20 @@ import {
 } from "three";
 import type { TextureSet } from "@/logic/assetFallback";
 import { FONTS, fontStack, type TextureSlot } from "@/logic/assetManifest";
+import type { Box } from "@/logic/buildingLayout";
 import {
   DETAIL_TEXTURE,
+  centreUv,
   detailGeometryData,
   detailLayout,
+  signPlateVertices,
+  withSignPlates,
   type SignId,
 } from "@/logic/detailLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
+  SIGNS_LOOK,
   surfaceMaterialParams,
   type SurfaceMaterialParams,
 } from "@/logic/lookConfig";
@@ -34,6 +39,8 @@ export type Details = {
   applyTextures(
     textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>,
   ): void;
+  /** Gives the skill signs' plates their faint red hover glow, or takes it off. */
+  setSignPlatesLit(on: boolean): void;
   /** Draws the signs again, for example once the fonts have loaded. */
   redraw(): void;
   dispose(): void;
@@ -112,24 +119,38 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
       neon,
     );
   drawPuddle(ctx, rects.puddle);
+  // The sign plates' hover glow: red at the plates' old highlight strength once the
+  // material's emissive intensity is applied (worked out in linear light).
+  ctx.fillStyle = new Color(PALETTE.accent)
+    .multiplyScalar(
+      SIGNS_LOOK.highlightEmissive / DETAILS_LOOK.emissiveIntensity,
+    )
+    .getStyle();
+  ctx.fillRect(
+    rects.plateLit.x,
+    rects.plateLit.y,
+    rects.plateLit.width,
+    rects.plateLit.height,
+  );
 }
 
 /**
  * Every detail prop (AC units, pipes, cables, vents, puddles, the shop signs and the
  * rooftop name sign) merged into one mesh: one draw call. The metal texture comes through
  * the first UV set; the sign text and the puddles' glow through the second, from one
- * 1024 x 512 canvas used as the emissive map. Not pickable.
+ * 1024 x 512 canvas used as the emissive map. Not pickable. The skill signs' backing
+ * plates (`signPlates`) join it too (task 15); their hover glow swaps their atlas UVs to
+ * a red patch, so it needs no second material.
  */
 export function createDetails(
   texts: SignTexts,
+  signPlates: readonly Box[] = [],
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  const data = detailGeometryData(
-    detailLayout(),
-    look.tileM,
-    DETAILS_LOOK.shades,
-  );
+  const layout = withSignPlates(detailLayout(), signPlates);
+  const plates = signPlateVertices(layout);
+  const data = detailGeometryData(layout, look.tileM, DETAILS_LOOK.shades);
   const geometry = new BufferGeometry();
   geometry.setAttribute(
     "position",
@@ -137,7 +158,9 @@ export function createDetails(
   );
   geometry.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
   geometry.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
-  geometry.setAttribute("uv1", new Float32BufferAttribute(data.atlasUvs, 2));
+  const atlasUvs = new Float32BufferAttribute(data.atlasUvs, 2);
+  let platesLit = false;
+  geometry.setAttribute("uv1", atlasUvs);
   geometry.setAttribute("color", new Float32BufferAttribute(data.colors, 3));
   geometry.setIndex(data.indices);
   geometry.computeBoundingSphere();
@@ -190,6 +213,16 @@ export function createDetails(
     object: mesh,
     applyTextures(textures) {
       apply(surfaceMaterialParams(look, textures[look.slot].maps));
+    },
+    setSignPlatesLit(on) {
+      const [u, v] = centreUv(
+        on ? DETAIL_TEXTURE.rects.plateLit : DETAIL_TEXTURE.rects.dark,
+      );
+      if (plates.count === 0 || on === platesLit) return;
+      platesLit = on;
+      for (let i = plates.start; i < plates.start + plates.count; i += 1)
+        atlasUvs.setXY(i, u, v);
+      atlasUvs.needsUpdate = true;
     },
     redraw,
     dispose() {
