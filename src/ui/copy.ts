@@ -4,6 +4,7 @@
  */
 
 import type { Side } from "@/logic/buildingLayout";
+import type { TerminalCommand } from "@/logic/terminalCommands";
 
 /** Accessible name of the scene canvas (it gets focus back when a panel closes). */
 export const SCENE_LABEL =
@@ -72,4 +73,52 @@ export const NEW_TAB_NOTE = "(opens in a new tab)";
 /** Alt text of a project's screenshot. */
 export function projectThumbnailAlt(title: string): string {
   return `Screenshot of ${title}`;
+}
+
+/** The door terminal's screen in the scene (right side). */
+export const TERMINAL_SCREEN_PROMPT = "> JACK IN_";
+export const TERMINAL_SCREEN_LABEL = "CONTACT";
+/** The full-screen terminal: prompt sign, input label and the command list. */
+export const TERMINAL_PROMPT = "guest@arcade:~$";
+export const TERMINAL_INPUT_LABEL = "Command";
+export const TERMINAL_OUTPUT_LABEL = "Terminal output";
+export const TERMINAL_COMMANDS_LABEL = "Commands";
+/** Shown when the terminal opens. */
+export const TERMINAL_WELCOME: readonly string[] = [
+  "Jacked in. Connection secure.",
+  "Type a command and press Enter, or pick one below. Type help for the list.",
+];
+/** What each command does, for `help`. */
+export const TERMINAL_COMMAND_HELP: Readonly<Record<TerminalCommand, string>> =
+  {
+    help: "list the commands, or explain one: help email",
+    contact: "every way to reach me",
+    email: "my email address",
+    github: "my GitHub profile",
+    linkedin: "my LinkedIn profile",
+    whoami: "who runs this building",
+    clear: "clear the screen",
+    exit: "leave the terminal (or press Escape)",
+  };
+/** Labels of the contact lines. */
+export const TERMINAL_FIELD_LABELS = {
+  email: "Email",
+  github: "GitHub",
+  linkedin: "LinkedIn",
+} as const;
+/** A contact field that is missing or failed validation. */
+export function terminalNotListed(label: string): string {
+  return `${label}: not listed`;
+}
+export function terminalNotFound(name: string): string {
+  return `command not found: ${name}`;
+}
+export function terminalSuggestion(command: string): string {
+  return `Did you mean "${command}"?`;
+}
+export const TERMINAL_HELP_HINT = "Type help for the list of commands.";
+export function terminalBadArgs(command: string): string {
+  return command === "help"
+    ? "help: give one command at most, like help email"
+    : `${command}: takes no arguments`;
 }

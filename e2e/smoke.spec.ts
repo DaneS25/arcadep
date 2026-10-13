@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { contact } from "../src/content/contact";
 import { profile } from "../src/content/profile";
 import { projects } from "../src/content/projects";
 import { skills } from "../src/content/skills";
@@ -31,7 +32,7 @@ test("the default view renders the look pass within its draw-call budget", async
   await expect(canvas).toHaveAttribute("data-draw-calls", /^\d+$/);
 
   // Scene pass only: merged walls, trim, pavement and street, instanced neon, the cabinet
-  // (body and screen), the skill signs (plates and faces), the graffiti wall and one marker.
+  // (body and screen), the skill signs (plates and faces), the graffiti wall and the door terminal.
   const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
   expect(drawCalls).toBeGreaterThan(0);
   expect(drawCalls).toBeLessThanOrEqual(12);
@@ -100,7 +101,15 @@ test.describe("interaction", () => {
       await expect(panel).toBeVisible();
       await expect(panel).toHaveAttribute("data-side", side);
       await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
-      await expect(panel.getByRole("button", { name: "Close" })).toBeFocused();
+      // The terminal starts on its command line; every other panel on its close button.
+      if (side === "right")
+        await expect(
+          panel.getByRole("textbox", { name: "Command" }),
+        ).toBeFocused();
+      else
+        await expect(
+          panel.getByRole("button", { name: "Close" }),
+        ).toBeFocused();
       // The focus trap keeps Tab inside the open panel.
       await page.keyboard.press("Tab");
       await expect(panel.locator(":focus")).toHaveCount(1);
@@ -365,6 +374,78 @@ test.describe("back: graffiti alley", () => {
     await expect(canvas).toHaveAttribute("data-camera-side", "back");
     await expect(canvas).toBeFocused();
   });
+});
+
+test.describe("right: door terminal", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("jacks in by keyboard, runs typed and clicked commands, and exit returns to the street", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+
+    // Tab order: front, right.
+    for (let i = 0; i < 2; i += 1) await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-app-side", "right");
+    await expect(canvas).toHaveAttribute("data-camera-side", "right");
+    await page.screenshot({ path: "test-results/right-terminal.png" });
+
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog");
+    await expect(panel).toHaveAttribute("data-side", "right");
+    const input = panel.getByRole("textbox", { name: "Command" });
+    await expect(input).toBeFocused();
+    // Full screen: the terminal covers the whole window.
+    const box = await panel.boundingBox();
+    expect(box?.width).toBe(1280);
+    expect(box?.height).toBe(800);
+
+    const log = panel.getByRole("log");
+    await input.fill("email");
+    await page.keyboard.press("Enter");
+    if (contact.email !== null)
+      await expect(
+        log.getByRole("link", { name: contact.email }),
+      ).toHaveAttribute("href", `mailto:${contact.email}`);
+
+    await panel.getByRole("button", { name: "github" }).click();
+    if (contact.github !== null) {
+      const link = log.getByRole("link", { name: /opens in a new tab/ }).last();
+      await expect(link).toHaveAttribute("href", contact.github);
+      await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    await input.fill("whoami");
+    await page.keyboard.press("Enter");
+    await expect(log).toContainText(profile.name);
+    await page.screenshot({ path: "test-results/right-terminal-panel.png" });
+
+    await input.fill("exit");
+    await page.keyboard.press("Enter");
+    await expect(panel).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
+    await expect(canvas).toHaveAttribute("data-app-side", "right");
+    await expect(canvas).toBeFocused();
+  });
+});
+
+test("the terminal jacks in with a fade when motion is allowed", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#loading-screen")).toBeHidden();
+  for (let i = 0; i < 2; i += 1) await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  const panel = page.getByRole("dialog");
+  await expect(panel).toHaveAttribute("data-side", "right");
+  const animation = await panel.evaluate(
+    (element) => getComputedStyle(element).animationName,
+  );
+  expect(animation).toBe("jack-in");
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
 });
 
 test("the camera tweens in to the cabinet's screen with motion allowed", async ({

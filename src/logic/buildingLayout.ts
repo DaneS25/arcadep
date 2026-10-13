@@ -118,7 +118,7 @@ export function sideWidthM(side: Side): number {
 }
 
 /** Distance from the building's centre line to a side's wall. */
-function sideOffsetM(side: Side): number {
+export function sideOffsetM(side: Side): number {
   return side === "front" || side === "back"
     ? BUILDING.depthM / 2
     : BUILDING.widthM / 2;
