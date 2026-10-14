@@ -265,8 +265,7 @@ export type RustSource = {
 /**
  * Where rust runs start on a side: under every metal part fixed to the wall (AC units,
  * vents, the alley's pipe run, the hanging signs' brackets and plates). Drain pipes reach
- * the ground and leave none; parts above the walls (the roof plant) or off them (the poles)
- * don't count. Parts of one prop collapse into one source.
+ * the ground and leave none; parts above the walls (the roof plant) don't count. Parts of one prop collapse into one source.
  */
 export function rustSources(side: Side): RustSource[] {
   const n = sideNormal(side);

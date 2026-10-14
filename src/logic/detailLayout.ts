@@ -292,41 +292,50 @@ function drainPipe(side: Side, alongM: number): DetailBox {
 }
 
 /**
- * Utility poles at the pavement's back kerb (task 24; they stood in the alley's kerb wall
- * before), carrying the cables from the back wall. `alongM` as for the back side.
+ * The alley cables (task 26: the utility poles are gone, so nothing stands out on the
+ * pavement). Each runs from where it leaves the back wall to a wall bracket or a hook on
+ * the parapet's face, sagging a little, picked round the windows, pipes, ducts and the
+ * floor band. `alongM` as for the back side; tasks 28 and 29 re-route them later.
  */
-export const POLE = {
-  alongM: [-3.2, 4.4],
-  sizeM: 0.24,
-  heightM: 9,
+export const BACK_CABLES: readonly {
+  readonly from: { readonly alongM: number; readonly y: number };
+  readonly to: { readonly alongM: number; readonly y: number };
+  readonly sagM: number;
+}[] = [
+  // Up from the wall to a parapet hook, past the pipe's top.
+  {
+    from: { alongM: -2, y: 10.5 },
+    to: { alongM: -0.65, y: 13.45 },
+    sagM: 0.12,
+  },
+  // Up between the top floor's window and the AC unit to a parapet hook.
+  { from: { alongM: 3, y: 9.6 }, to: { alongM: 2.3, y: 13.45 }, sagM: 0.12 },
+  // Across under the floor band to a wall bracket.
+  { from: { alongM: -5, y: 8 }, to: { alongM: -2, y: 8.05 }, sagM: 0.3 },
+];
+
+/** How far a cable runs out from the back wall, and its brackets' size. */
+export const CABLE_HANG = {
+  outM: 0.05,
+  bracket: { across: 0.08, up: 0.08, out: 0.1 },
 } as const;
 
-/** A pole's centre out from the back wall: on the kerb stones at the pavement's edge. */
-export function poleOutM(): number {
-  return STREET.alleyWidthM - STREET.kerbWidthM / 2;
+/** A cable's two ends on the back wall (or the parapet's face, flush with it). */
+export function backCableEnds(): { from: Vec3; to: Vec3; sagM: number }[] {
+  return BACK_CABLES.map(({ from, to, sagM }) => ({
+    from: pointOnSide("back", from.alongM, from.y, CABLE_HANG.outM),
+    to: pointOnSide("back", to.alongM, to.y, CABLE_HANG.outM),
+    sagM,
+  }));
 }
 
-/** A pole's foot: the top of the kerb stones. */
-export function poleBottomY(): number {
-  return STREET.curbHeightM + STREET.kerbRiseM;
-}
-
-function utilityPole(alongM: number): DetailBox {
+/** A small bracket or hook on the wall round a cable's end. */
+function cableBracket(alongM: number, y: number): DetailBox {
+  const b = CABLE_HANG.bracket;
   return {
     kind: "metal",
-    box: wallBox(
-      "back",
-      alongM,
-      poleBottomY(),
-      { across: POLE.sizeM, up: POLE.heightM, out: POLE.sizeM },
-      poleOutM() - POLE.sizeM / 2,
-    ),
+    box: wallBox("back", alongM, y - b.up / 2, b),
   };
-}
-
-/** The utility poles' boxes, for the camera and wisp tests. */
-export function utilityPoles(): Box[] {
-  return POLE.alongM.map((alongM) => utilityPole(alongM).box);
 }
 
 /**
@@ -659,9 +668,6 @@ function rooftopSign(): {
 export function detailLayout(): DetailLayout {
   const top = roofTopY();
   const halfW = BUILDING.widthM / 2;
-  // Cables over the alley end on the utility poles at the back kerb, on their wall side.
-  const poleTop = poleBottomY() + POLE.heightM - 0.3;
-  const poleFace = poleOutM() - POLE.sizeM / 2;
   const cafe = hangingSign("cafe");
   const arcade = hangingSign("arcade");
   const roof = rooftopSign();
@@ -703,8 +709,11 @@ export function detailLayout(): DetailLayout {
         D.pipeGapM,
       ),
     },
-    // Utility poles at the back kerb, carrying the cables from the back wall.
-    ...POLE.alongM.map((alongM) => utilityPole(alongM)),
+    // Brackets and parapet hooks holding the alley cables.
+    ...BACK_CABLES.flatMap(({ from, to }) => [
+      cableBracket(from.alongM, from.y),
+      cableBracket(to.alongM, to.y),
+    ]),
     // Puddles on the pavement.
     ...PUDDLES.map((p) => puddle(p.x, p.z, p.sizeX, p.sizeZ)),
     // Signs.
@@ -720,22 +729,8 @@ export function detailLayout(): DetailLayout {
       pointOnSide("front", halfW - 0.1, 11.9, 0.06),
       0.6,
     ),
-    // From the back wall over the alley to the utility poles.
-    ...cable(
-      pointOnSide("back", -2, 10.5, 0.05),
-      pointOnSide("back", -3.2, poleTop, poleFace),
-      0.5,
-    ),
-    ...cable(
-      pointOnSide("back", 3, 9.6, 0.05),
-      pointOnSide("back", 4.4, poleTop - 0.4, poleFace),
-      0.4,
-    ),
-    ...cable(
-      pointOnSide("back", -5, 8, 0.05),
-      pointOnSide("back", -3.2, poleTop - 0.6, poleFace),
-      0.3,
-    ),
+    // The alley cables, hung on the back wall.
+    ...backCableEnds().flatMap(({ from, to, sagM }) => cable(from, to, sagM)),
     // From the right side's AC unit up to the roof, and between the left side's two.
     ...cable(
       pointOnSide("right", 2.5, 10.5, 0.3),

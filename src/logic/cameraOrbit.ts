@@ -24,8 +24,8 @@ export const CAMERA = {
   target: { x: 0, y: 6, z: 0 },
   /**
    * Lowest the camera can tilt: it stays 5° above the target's height, so even at the
-   * closest zoom it sits over 7 m up, above the pavement and the utility poles' cables
-   * (the alley wall went in task 24).
+   * closest zoom it sits over 7 m up, above the pavement and the alley cables on the back
+   * wall (the alley wall went in task 24, the poles in task 26).
    */
   maxPolarRad: 85 * DEG,
   /** Highest the camera can tilt, short of looking straight down. */

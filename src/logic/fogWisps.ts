@@ -64,7 +64,7 @@ export type WispPose = {
 
 /**
  * The farthest any pavement corner is from the building's vertical axis. The pavement
- * (task 24) holds the building, the kerb and the utility poles, so wisps drifting outside
+ * (task 24) holds the building and the kerb (nothing stands on it since task 26), so wisps drifting outside
  * it never cut into any of them; it reaches about as far as the old alley wall (gone in task 24) did.
  */
 export function obstacleRadiusM(): number {
