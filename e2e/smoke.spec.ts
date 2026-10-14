@@ -773,8 +773,8 @@ test.describe("back: graffiti alley", () => {
     await expect(canvas).toHaveAttribute("data-app-state", "panel");
     await page.screenshot({ path: "test-results/back-projects-panel.png" });
 
-    // The posters' close-up over the alley's pavement (task 24: no kerb wall, the poles and
-    // the purple tube), with the panel hidden just for this screenshot.
+    // The posters' close-up over the alley's pavement (task 24: no kerb wall; task 26: no poles,
+    // the purple tube up the back corner), with the panel hidden just for this screenshot.
     await page.evaluate(() => {
       const style = document.createElement("style");
       style.id = "hide-panel";

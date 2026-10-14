@@ -31,9 +31,7 @@ import {
 import { DUCT_RUNS } from "./ductLayout";
 import {
   DETAIL_SIZES,
-  POLE,
   PUDDLES,
-  poleOutM,
   type DetailBox,
   type DetailLayout,
 } from "./detailLayout";
@@ -239,7 +237,7 @@ export function binBags(): DetailBox[] {
   ];
 }
 
-/** Ground rectangles litter keeps out of: doors, spots, puddles, drains, poles, the grate, bags. */
+/** Ground rectangles litter keeps out of: doors, spots, puddles, drains, the grate, bags. */
 export function litterKeepOut(): Rect[] {
   const rects: Rect[] = [];
   // In front of every ground-floor door, where it swings and people walk.
@@ -275,16 +273,6 @@ export function litterKeepOut(): Rect[] {
   for (const d of drains())
     for (const part of drainParts(d)) rects.push(groundRect(part.box, 0.1));
   for (const part of binBags()) rects.push(groundRect(part.box, 0.15));
-  for (const alongM of POLE.alongM)
-    rects.push(
-      groundRect(
-        {
-          centre: pointOnSide("back", alongM, 0, poleOutM()),
-          size: { x: POLE.sizeM, y: 1, z: POLE.sizeM },
-        },
-        0.2,
-      ),
-    );
   const g = pointOnSide(
     "back",
     DUCT_RUNS.grate.alongM,
@@ -348,7 +336,7 @@ const LITTER_KINDS: readonly LitterKind[] = [
 
 /**
  * Rubbish scattered over the pavement, each piece lying flat on it, clear of the walls,
- * the kerb stones, the doors, the spots, the puddles, the drains, the poles and each other.
+ * the kerb stones, the doors, the spots, the puddles, the drains and each other.
  */
 export function litter(
   count: number = SIDEWALK.litterCount,

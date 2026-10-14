@@ -8,7 +8,8 @@ import {
   type Box,
   type Vec3,
 } from "./buildingLayout";
-import { utilityPoles } from "./detailLayout";
+import { detailLayout } from "./detailLayout";
+import { withDucts } from "./ductLayout";
 import {
   CAMERA,
   clampOrbit,
@@ -104,12 +105,12 @@ describe("camera limits keep the camera outside the scene", () => {
     }
   });
 
-  it("never enters the building or the utility poles", () => {
+  it("never enters the building or any prop on it", () => {
+    const props = withDucts(detailLayout()).boxes;
     for (const orbit of samples) {
       const p = orbitPosition(orbit);
       expect(insideBox(p, building, 0.5)).toBe(false);
-      for (const pole of utilityPoles())
-        expect(insideBox(p, pole, 0.5)).toBe(false);
+      for (const { box } of props) expect(insideBox(p, box, 0.5)).toBe(false);
     }
   });
 
