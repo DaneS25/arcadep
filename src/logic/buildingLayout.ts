@@ -348,7 +348,8 @@ const SPOT_PLACEMENTS: Readonly<Record<Side, SpotPlacement>> = {
     gapM: 0.1,
     size: { x: 5, y: 3, z: 0.2 },
   },
-  // Project posters on the ground floor of the back wall (the graffiti spreads round them).
+  // The back wall's ground floor (the posters spread over all three floors since task 27,
+  // `graffitiLayout`; the spot still anchors their local frame).
   back: {
     alongM: 0,
     bottomY: 0.6,
@@ -541,8 +542,8 @@ export function wallOpenings(): WallOpening[] {
     windowAt("left", 2, -1.5, "lit"),
     windowAt("left", 2, 0.6, "broken"),
     windowAt("left", 2, 4.3, "blinds", { widthM: 0.9, light: "cold" }),
-    // Back: two back doors either side of the poster row, a fire-escape door, and windows
-    // that are mostly boarded or broken (the alley side gets the worst of it).
+    // Back: two back doors either side of the ground-floor posters, a fire-escape door, and
+    // windows that are mostly boarded or broken (the alley side gets the worst of it).
     doorAt("back", 0, -4.75, "back", "dark", { widthM: 1 }),
     doorAt("back", 0, 4.75, "back", "dark", { widthM: 1 }),
     windowAt("back", 1, -4.6, "boarded", { widthM: 1 }),

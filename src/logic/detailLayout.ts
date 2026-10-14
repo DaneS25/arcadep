@@ -308,8 +308,12 @@ export const BACK_CABLES: readonly {
     to: { alongM: -0.65, y: 13.45 },
     sagM: 0.12,
   },
-  // Up between the top floor's window and the AC unit to a parapet hook.
-  { from: { alongM: 3, y: 9.6 }, to: { alongM: 2.3, y: 13.45 }, sagM: 0.12 },
+  // Up from over the second floor's right-hand poster (task 27) to a parapet hook.
+  {
+    from: { alongM: 3.3, y: 11.45 },
+    to: { alongM: 2.3, y: 13.45 },
+    sagM: 0.12,
+  },
   // Across under the floor band to a wall bracket.
   { from: { alongM: -5, y: 8 }, to: { alongM: -2, y: 8.05 }, sagM: 0.3 },
 ];
@@ -690,7 +694,8 @@ export function detailLayout(): DetailLayout {
     ...roofVent(3.2, 0.6),
     // Wall vents.
     ...vent("right", -3.5, 2.8),
-    ...vent("back", 2.5, 6.2),
+    // Low on the first floor, under its right-hand window (task 27: the poster took its spot).
+    ...vent("back", 0.9, 4.8),
     ...vent("front", -1.2, 7.4),
     ...vent("left", 2.5, 2.6),
     // Drain pipes and a pipe run on the alley side.

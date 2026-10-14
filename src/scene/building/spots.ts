@@ -71,7 +71,7 @@ export function createInteractionSpots(
     }
     if (spot.side === "back") {
       group.add(graffiti.object);
-      // Only the poster row is picked; the graffiti round it is decoration.
+      // Only the posters are picked; the graffiti round them is decoration.
       return { id: spot.id, side: spot.side, object: graffiti.pickObject };
     }
     group.add(terminal.object);
