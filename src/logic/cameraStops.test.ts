@@ -4,13 +4,13 @@ import {
   BUILDING,
   SIDES,
   STREET,
-  alleyWallBox,
   buildingHeightM,
   type Box,
   type Side,
   type Vec3,
 } from "./buildingLayout";
 import { screenViewPose } from "./cabinetLayout";
+import { utilityPoles } from "./detailLayout";
 import {
   CAMERA,
   planPoseTween,
@@ -144,24 +144,35 @@ describe("the signs' close-up", () => {
 describe("the posters' close-up", () => {
   const pose = postersViewPose();
   const camera = posePosition(pose);
-  const alley = alleyWallBox();
 
-  it("stands back past the low alley wall, above it, and sees every poster over it", () => {
-    const farFace = alley.centre.z - alley.size.z / 2;
-    expect(camera.z).toBeLessThan(farFace);
+  it("stands back over the alley's pavement and sees every poster past the poles", () => {
+    expect(camera.z).toBeLessThan(-BUILDING.depthM / 2 - 3);
     expect(camera.z).toBeGreaterThan(-BUILDING.depthM / 2 - 9);
-    expect(camera.y).toBeGreaterThan(STREET.alleyWallHeightM + 3);
+    expect(camera.y).toBeGreaterThan(STREET.curbHeightM + 3);
     expect(camera.y).toBeLessThan(8);
-    // A sight line to each poster corner clears the low wall's top.
+    // A sight line to the middle and every corner of each poster misses the poles.
     const layout = graffitiLayout(8, 1);
-    for (const corner of layout.posters.flatMap((p) => p.quad.corners)) {
-      for (let t = 0.05; t < 1; t += 0.05) {
+    const targets = layout.posters.flatMap((p) => {
+      const cs = p.quad.corners;
+      const mid = cs.reduce(
+        (m, c) => ({
+          x: m.x + c.x / cs.length,
+          y: m.y + c.y / cs.length,
+          z: m.z + c.z / cs.length,
+        }),
+        { x: 0, y: 0, z: 0 },
+      );
+      return [mid, ...cs];
+    });
+    for (const corner of targets) {
+      for (let t = 0.02; t < 1; t += 0.02) {
         const p = {
           x: camera.x + (corner.x - camera.x) * t,
           y: camera.y + (corner.y - camera.y) * t,
           z: camera.z + (corner.z - camera.z) * t,
         };
-        expect(inside(alley, p, 0.05)).toBe(false);
+        for (const pole of utilityPoles())
+          expect(inside(pole, p, 0.02)).toBe(false);
       }
     }
   });
@@ -186,8 +197,7 @@ describe("the posters' close-up", () => {
 });
 
 describe("moves to and from the signs and posters", () => {
-  it("never pass through the building, its roof, the alley wall or the street", () => {
-    const alley = alleyWallBox();
+  it("never pass through the building, its roof, the poles or the pavement", () => {
     for (const side of ["left", "back"] as const) {
       const closeUp = stopPose({ kind: "closeUp", side });
       for (const start of STARTS)
@@ -197,7 +207,8 @@ describe("moves to and from the signs and posters", () => {
         ] as const)
           for (const p of path(from, to)) {
             expect(inside(BUILDING_BOX, p, 0.3)).toBe(false);
-            expect(inside(alley, p, 0.15)).toBe(false);
+            for (const pole of utilityPoles())
+              expect(inside(pole, p, 0.15)).toBe(false);
             expect(p.y).toBeGreaterThan(STREET.curbHeightM + 0.5);
           }
     }

@@ -25,6 +25,7 @@ import {
   type WindowCellId,
 } from "@/logic/detailLayout";
 import { withDucts } from "@/logic/ductLayout";
+import { withSidewalk } from "@/logic/sidewalkLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
@@ -177,10 +178,10 @@ export function createDetails(
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  // Ducts (task 23), windows and doors join before the sign plates, which must stay last
-  // among the boxes.
+  // Ducts (task 23), the pavement's drains, bags and litter (task 24), windows and doors
+  // join before the sign plates, which must stay last among the boxes.
   const layout = withSignPlates(
-    withWindows(withDucts(detailLayout())),
+    withWindows(withSidewalk(withDucts(detailLayout()))),
     signPlates,
   );
   const paneStarts = glassVertexStarts(layout);

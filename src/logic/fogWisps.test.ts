@@ -1,6 +1,7 @@
+import { utilityPoles } from "./detailLayout";
 import { describe, expect, it } from "vitest";
 import {
-  alleyWallBox,
+  sidewalkRect,
   buildingFootprint,
   buildingHeightM,
 } from "./buildingLayout";
@@ -55,14 +56,17 @@ describe("createWisps", () => {
 });
 
 describe("wispPose", () => {
-  it("never brings a wisp's blob into the building, the alley wall or the street", () => {
+  it("never brings a wisp's blob into the building, the pavement, the poles or the street", () => {
     const fp = buildingFootprint();
-    const wall = alleyWallBox();
+    const walk = sidewalkRect();
     const corners = [
       [fp.minX, fp.minZ],
       [fp.maxX, fp.maxZ],
-      [wall.centre.x + wall.size.x / 2, wall.centre.z - wall.size.z / 2],
-      [wall.centre.x - wall.size.x / 2, wall.centre.z - wall.size.z / 2],
+      [walk.minX, walk.minZ],
+      [walk.maxX, walk.minZ],
+      [walk.minX, walk.maxZ],
+      [walk.maxX, walk.maxZ],
+      ...utilityPoles().map((p) => [p.centre.x, p.centre.z]),
     ];
     for (const [x, z] of corners)
       expect(Math.hypot(x ?? 0, z ?? 0)).toBeLessThanOrEqual(obstacleRadiusM());

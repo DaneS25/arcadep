@@ -24,7 +24,7 @@ export const PALETTE = {
   muted: "#b4b4c2",
   /** Street surface before textures arrive. */
   ground: "#16161c",
-  /** Building walls and the alley wall before textures arrive (blockout, task 5). */
+  /** Building walls before textures arrive (blockout, task 5). */
   wall: "#2b2b35",
   /** Floor bands, roof and parapets. */
   trim: "#3a3a46",

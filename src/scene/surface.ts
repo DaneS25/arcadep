@@ -6,7 +6,7 @@ import {
   type Texture,
 } from "three";
 import type { TextureSet } from "@/logic/assetFallback";
-import { boxesGeometryData } from "@/logic/boxGeometry";
+import { boxesGeometryData, type GeometryData } from "@/logic/boxGeometry";
 import type { Box } from "@/logic/buildingLayout";
 import {
   SURFACES,
@@ -31,13 +31,15 @@ export type Surface = {
 /**
  * One merged mesh holding every box of a surface (all walls, all trim), so the whole
  * surface is one draw call with one material. Starts in its plain colour. With `grime`
- * (the wall grime atlas, task 22), each face also reads its side's grime by where it is.
+ * (the wall grime atlas, task 22), each face also reads its side's grime by where it is;
+ * `grimeUvsOf` maps the vertices into another grime texture (the pavement's, task 24).
  */
 export function createSurface(
   id: SurfaceId,
   boxes: readonly Box[],
   name: string,
   grime?: GrimeTextures,
+  grimeUvsOf: (data: GeometryData) => number[] = grimeUvs,
 ): Surface {
   const look = SURFACES[id];
   const data = boxesGeometryData(boxes, look.tileM);
@@ -55,7 +57,7 @@ export function createSurface(
   if (grime !== undefined) {
     geometry.setAttribute(
       "grimeUv",
-      new Float32BufferAttribute(grimeUvs(data), 2),
+      new Float32BufferAttribute(grimeUvsOf(data), 2),
     );
     addGrime(material, { grime, source: { kind: "attribute" } });
   }

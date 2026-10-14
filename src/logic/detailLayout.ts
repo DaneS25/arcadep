@@ -276,7 +276,7 @@ export function vent(side: Side, alongM: number, bottomY: number): DetailBox[] {
   ];
 }
 
-/** A vertical drain pipe from the street to the roof. */
+/** A vertical drain pipe from the pavement to the roof. */
 function drainPipe(side: Side, alongM: number): DetailBox {
   const top = roofTopY();
   return {
@@ -292,8 +292,8 @@ function drainPipe(side: Side, alongM: number): DetailBox {
 }
 
 /**
- * Utility poles standing in the low alley wall (task 19), carrying the cables that used to
- * end on the 5 m alley wall. `alongM` as for the back side.
+ * Utility poles at the pavement's back kerb (task 24; they stood in the alley's kerb wall
+ * before), carrying the cables from the back wall. `alongM` as for the back side.
  */
 export const POLE = {
   alongM: [-3.2, 4.4],
@@ -301,20 +301,53 @@ export const POLE = {
   heightM: 9,
 } as const;
 
+/** A pole's centre out from the back wall: on the kerb stones at the pavement's edge. */
+export function poleOutM(): number {
+  return STREET.alleyWidthM - STREET.kerbWidthM / 2;
+}
+
+/** A pole's foot: the top of the kerb stones. */
+export function poleBottomY(): number {
+  return STREET.curbHeightM + STREET.kerbRiseM;
+}
+
 function utilityPole(alongM: number): DetailBox {
-  const out =
-    STREET.alleyWidthM + STREET.alleyWallThicknessM / 2 - POLE.sizeM / 2;
   return {
     kind: "metal",
     box: wallBox(
       "back",
       alongM,
-      0,
+      poleBottomY(),
       { across: POLE.sizeM, up: POLE.heightM, out: POLE.sizeM },
-      out,
+      poleOutM() - POLE.sizeM / 2,
     ),
   };
 }
+
+/** The utility poles' boxes, for the camera and wisp tests. */
+export function utilityPoles(): Box[] {
+  return POLE.alongM.map((alongM) => utilityPole(alongM).box);
+}
+
+/**
+ * Puddles on the pavement (task 24; they lay on the street before, which now fades out):
+ * centre and size on the ground, clear of the kerb stones, doors, spots and drains.
+ */
+export const PUDDLES: readonly {
+  readonly x: number;
+  readonly z: number;
+  readonly sizeX: number;
+  readonly sizeZ: number;
+}[] = [
+  { x: -6.4, z: 6.9, sizeX: 1.6, sizeZ: 0.8 },
+  { x: 2.7, z: 7.1, sizeX: 1.3, sizeZ: 0.7 },
+  { x: 7.9, z: 3, sizeX: 0.8, sizeZ: 1.6 },
+  { x: 7.7, z: -3.6, sizeX: 0.9, sizeZ: 1.2 },
+  { x: -7.6, z: -1.5, sizeX: 0.9, sizeZ: 1.8 },
+  { x: 1.2, z: -7.6, sizeX: 1.8, sizeZ: 0.9 },
+  { x: -2.4, z: -7.2, sizeX: 1.2, sizeZ: 0.6 },
+  { x: 6.8, z: -7.4, sizeX: 1.1, sizeZ: 0.7 },
+];
 
 /** A horizontal pipe along a wall between two points along it, at height `y` (its centre). */
 function pipeRun(side: Side, fromM: number, toM: number, y: number): DetailBox {
@@ -358,7 +391,11 @@ function roofVent(x: number, z: number): DetailBox[] {
 function puddle(x: number, z: number, sizeX: number, sizeZ: number): DetailBox {
   return {
     kind: "puddle",
-    box: standing(x, z, 0.002, { x: sizeX, y: D.puddleM, z: sizeZ }),
+    box: standing(x, z, STREET.curbHeightM + 0.002, {
+      x: sizeX,
+      y: D.puddleM,
+      z: sizeZ,
+    }),
   };
 }
 
@@ -622,10 +659,9 @@ function rooftopSign(): {
 export function detailLayout(): DetailLayout {
   const top = roofTopY();
   const halfW = BUILDING.widthM / 2;
-  const alley = STREET.alleyWidthM;
-  // Cables over the alley end on utility poles standing in the low wall across it.
-  const poleTop = POLE.heightM - 0.3;
-  const poleFace = alley + STREET.alleyWallThicknessM / 2 - POLE.sizeM / 2;
+  // Cables over the alley end on the utility poles at the back kerb, on their wall side.
+  const poleTop = poleBottomY() + POLE.heightM - 0.3;
+  const poleFace = poleOutM() - POLE.sizeM / 2;
   const cafe = hangingSign("cafe");
   const arcade = hangingSign("arcade");
   const roof = rooftopSign();
@@ -667,16 +703,10 @@ export function detailLayout(): DetailLayout {
         D.pipeGapM,
       ),
     },
-    // Utility poles across the alley, carrying the cables from the back wall.
+    // Utility poles at the back kerb, carrying the cables from the back wall.
     ...POLE.alongM.map((alongM) => utilityPole(alongM)),
-    // Puddles on the street round the corner and in the alley.
-    puddle(-3, 10.5, 2.4, 1.1),
-    puddle(3.5, 12.2, 1.4, 0.8),
-    puddle(10.8, -1.5, 1, 2.4),
-    puddle(10.5, 10, 1.6, 1.6),
-    puddle(-11, 2.5, 0.9, 1.8),
-    puddle(2, -7.2, 1.8, 0.9),
-    puddle(-4.2, -6.2, 1, 0.7),
+    // Puddles on the pavement.
+    ...PUDDLES.map((p) => puddle(p.x, p.z, p.sizeX, p.sizeZ)),
     // Signs.
     ...cafe.boxes,
     ...arcade.boxes,

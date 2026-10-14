@@ -3,7 +3,6 @@ import { boxesGeometryData } from "./boxGeometry";
 import {
   SIDES,
   WINDOW,
-  alleyWallBox,
   bandBoxes,
   buildingHeightM,
   floorBoxes,
@@ -136,12 +135,6 @@ describe("the wall grime atlas", () => {
     );
     // The front parapet's inner face looks back over the roof, 4.7 m off the back wall.
     expect(grimeUv(sideNormal("back"), { x: 0, y: 13, z: 4.7 })).toEqual(plain);
-    // The alley's kerb wall (task 24 removes it) gets no wall marks.
-    const kerb = boxesGeometryData([alleyWallBox()], 2);
-    const kerbUvs = grimeUvs(kerb);
-    for (let i = 0; i < kerbUvs.length; i += 2) {
-      expect([kerbUvs[i], kerbUvs[i + 1]]).toEqual(plain);
-    }
   });
 
   it("keeps the plain patch where no wall reaches", () => {

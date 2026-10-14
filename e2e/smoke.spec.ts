@@ -296,6 +296,92 @@ test.describe("camera navigation", () => {
     await page.screenshot({ path: "test-results/ducts-back-full.png" });
   });
 
+  test("the pavement runs round the building within the draw-call budget and the street fades to black past it", async ({
+    page,
+  }) => {
+    // Several full renders and a zoomed-out orbit render slowly in headless Chromium.
+    test.slow();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    // The kerbs join the pavement's mesh and the drains, bags and litter the details mesh
+    // (task 24), so the budget holds from every side.
+    const budget = async (): Promise<void> => {
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+    };
+    for (const side of ["right", "back", "left", "front"]) {
+      await page.keyboard.press("ArrowRight");
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
+      await page.waitForTimeout(300);
+      await budget();
+      await page.screenshot({ path: `test-results/sidewalk-${side}.png` });
+    }
+
+    // High and far: zoom right out and swing up over the corner.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let i = 0; i < 4; i += 1) await page.mouse.wheel(0, 800);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 300, {
+      steps: 6,
+    });
+    await page.mouse.up();
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.waitForTimeout(600);
+    await budget();
+    await page.screenshot({ path: "test-results/sidewalk-high.png" });
+
+    // Past the pavement the frame is black: the brightest pixel in each corner of the
+    // high view (all street past the fade) stays near the base colour.
+    const cdp = await page.context().newCDPSession(page);
+    const size = 60;
+    const corners = [
+      [box.x + 2, box.y + 2],
+      [box.x + box.width - size - 2, box.y + 2],
+      [box.x + 2, box.y + box.height - size - 2],
+      [box.x + box.width - size - 2, box.y + box.height - size - 2],
+    ] as const;
+    for (const [x, y] of corners) {
+      const { data } = await cdp.send("Page.captureScreenshot", {
+        format: "png",
+        clip: {
+          x: Math.round(x),
+          y: Math.round(y),
+          width: size,
+          height: size,
+          scale: 1,
+        },
+      });
+      const brightest = await page.evaluate(async (png) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${png}`;
+        await img.decode();
+        const c = document.createElement("canvas");
+        c.width = img.width;
+        c.height = img.height;
+        const ctx = c.getContext("2d");
+        if (ctx === null) return 255;
+        ctx.drawImage(img, 0, 0);
+        const pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+        let max = 0;
+        for (let i = 0; i < pixels.length; i += 4)
+          max = Math.max(
+            max,
+            pixels[i] ?? 0,
+            pixels[i + 1] ?? 0,
+            pixels[i + 2] ?? 0,
+          );
+        return max;
+      }, data);
+      expect(brightest).toBeLessThan(40);
+    }
+  });
+
   test("dragging with the mouse takes the camera off the side views", async ({
     page,
   }) => {
@@ -686,6 +772,20 @@ test.describe("back: graffiti alley", () => {
     await expect(link).toHaveAttribute("href", second.url);
     await expect(canvas).toHaveAttribute("data-app-state", "panel");
     await page.screenshot({ path: "test-results/back-projects-panel.png" });
+
+    // The posters' close-up over the alley's pavement (task 24: no kerb wall, the poles and
+    // the purple tube), with the panel hidden just for this screenshot.
+    await page.evaluate(() => {
+      const style = document.createElement("style");
+      style.id = "hide-panel";
+      style.textContent = "dialog.panel { visibility: hidden; }";
+      document.head.append(style);
+    });
+    await page.screenshot({ path: "test-results/sidewalk-posters.png" });
+    await page.evaluate(() => {
+      document.getElementById("hide-panel")?.remove();
+    });
+    await panel.getByRole("button", { name: "Close" }).focus();
 
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();

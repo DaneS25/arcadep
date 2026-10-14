@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   BUILDING,
-  alleyWallBox,
   interactionSpots,
   openingRect,
   pointOnSide,
@@ -112,7 +111,6 @@ describe("ductLayout", () => {
       ...windowLayout().boxes.map((part) => part.box),
       ...neonStrips().map((strip) => strip.box),
       ...skillSignsLayout(12).signs.map((sign) => sign.plate),
-      alleyWallBox(),
     ];
     const spots = interactionSpots().map((spot): Box => {
       const n = sideNormal(spot.side);

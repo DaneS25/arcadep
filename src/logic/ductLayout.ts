@@ -9,6 +9,7 @@
  */
 
 import {
+  pavementY,
   pointOnSide,
   sideNormal,
   type Box,
@@ -52,8 +53,8 @@ export const BACK_LAMP = {
   side: "back",
   /** Over the right-hand back door (seen from the alley), under the fire escape. */
   alongM: 4.75,
-  /** Bottom of the cage, just over the door frame's top (2.3 m). */
-  bottomY: 2.42,
+  /** Bottom of the cage, just over the door frame's top (2.45 m, on the pavement since task 24). */
+  bottomY: 2.57,
   /** The bulb's centre out from the wall. */
   outM: 0.28,
   bulbM: 0.08,
@@ -95,7 +96,7 @@ export const DUCT_RUNS = {
   stub: { side: "right", alongM: -0.5, y: 10.6 },
   /** Back: a dryer stub over the poster row, near the lamp. */
   backStub: { side: "back", alongM: 3.4, y: 3.74 },
-  /** The drain grate on the alley floor in front of the lit door. */
+  /** The drain grate on the alley's pavement in front of the lit door. */
   grate: { alongM: 3.9, outM: 2 },
 } as const;
 
@@ -431,7 +432,7 @@ export function backLampParts(): DetailBox[] {
   return parts;
 }
 
-/** The drain grate on the alley floor: a frame and three bars, a few mm thick. */
+/** The drain grate on the alley's pavement: a frame and three bars, a few mm thick. */
 function grate(): DetailBox[] {
   const G = DUCT_RUNS.grate;
   const centre = pointOnSide("back", G.alongM, 0, G.outM);
@@ -447,7 +448,7 @@ function grate(): DetailBox[] {
     {
       kind: "cable",
       box: {
-        centre: { x: centre.x, y: 0.004, z: centre.z },
+        centre: { x: centre.x, y: pavementY() + 0.002, z: centre.z },
         size: size(along, out, 0.004),
       },
     },
@@ -456,7 +457,7 @@ function grate(): DetailBox[] {
       box: {
         centre: {
           x: centre.x + n.x * o,
-          y: 0.009,
+          y: pavementY() + 0.007,
           z: centre.z + n.z * o,
         },
         size: size(along - 0.06, 0.05, 0.012),
@@ -545,7 +546,7 @@ export function steamVents(): SteamVent[] {
       position: pointOnSide(
         "back",
         DUCT_RUNS.grate.alongM,
-        0.05,
+        pavementY() + 0.05,
         DUCT_RUNS.grate.outM,
       ),
       direction: UP,

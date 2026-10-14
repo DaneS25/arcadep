@@ -4,7 +4,8 @@ import {
   SIDES,
   STREET,
   alleyRect,
-  alleyWallBox,
+  kerbBoxes,
+  pavementY,
   bandBoxes,
   buildingFootprint,
   floorBoxes,
@@ -191,30 +192,60 @@ describe("pointOnSide", () => {
 });
 
 describe("street layout", () => {
-  it("wraps the pavement round the front, left and right but not the back", () => {
+  it("wraps the pavement all the way round, wider at the back (task 24)", () => {
     const fp = buildingFootprint();
     const walk = sidewalkRect();
     expect(walk.maxZ).toBe(fp.maxZ + STREET.sidewalkWidthM);
     expect(walk.minX).toBe(fp.minX - STREET.sidewalkWidthM);
     expect(walk.maxX).toBe(fp.maxX + STREET.sidewalkWidthM);
-    expect(walk.minZ).toBe(fp.minZ);
+    expect(walk.minZ).toBe(fp.minZ - STREET.alleyWidthM);
+    expect(pavementY()).toBe(STREET.curbHeightM);
   });
 
-  it("puts the alley directly behind the building, wider than it", () => {
+  it("makes the alley the strip of pavement behind the building", () => {
     const fp = buildingFootprint();
     const alley = alleyRect();
+    const walk = sidewalkRect();
     expect(alley.maxZ).toBe(fp.minZ);
     expect(alley.maxZ - alley.minZ).toBe(STREET.alleyWidthM);
-    expect(alley.minX).toBeLessThan(fp.minX);
-    expect(alley.maxX).toBeGreaterThan(fp.maxX);
+    expect(alley.minX).toBe(walk.minX);
+    expect(alley.maxX).toBe(walk.maxX);
   });
 
-  it("stands the alley wall on the ground just past the alley's far edge", () => {
-    const wall = alleyWallBox();
-    const alley = alleyRect();
-    expect(wall.centre.y - wall.size.y / 2).toBe(0);
-    expect(wall.centre.z + wall.size.z / 2).toBeCloseTo(alley.minZ);
-    expect(wall.size.x).toBe(alley.maxX - alley.minX);
+  it("lines the pavement's outer edge with kerb stones, a little proud, all round", () => {
+    const walk = sidewalkRect();
+    const kerbs = kerbBoxes();
+    expect(kerbs).toHaveLength(4);
+    for (const k of kerbs) {
+      expect(k.centre.y - k.size.y / 2).toBe(0);
+      expect(k.centre.y + k.size.y / 2).toBeCloseTo(
+        STREET.curbHeightM + STREET.kerbRiseM,
+      );
+      expect(Math.min(k.size.x, k.size.z)).toBeCloseTo(STREET.kerbWidthM);
+      expect(k.centre.x - k.size.x / 2).toBeGreaterThanOrEqual(
+        walk.minX - 1e-9,
+      );
+      expect(k.centre.x + k.size.x / 2).toBeLessThanOrEqual(walk.maxX + 1e-9);
+      expect(k.centre.z - k.size.z / 2).toBeGreaterThanOrEqual(
+        walk.minZ - 1e-9,
+      );
+      expect(k.centre.z + k.size.z / 2).toBeLessThanOrEqual(walk.maxZ + 1e-9);
+    }
+    // Each edge of the pavement is touched by one kerb.
+    const touches = (pick: (k: (typeof kerbs)[number]) => boolean): number =>
+      kerbs.filter(pick).length;
+    expect(
+      touches((k) => k.centre.z + k.size.z / 2 === walk.maxZ),
+    ).toBeGreaterThan(0);
+    expect(
+      touches((k) => k.centre.z - k.size.z / 2 === walk.minZ),
+    ).toBeGreaterThan(0);
+    expect(
+      touches((k) => k.centre.x - k.size.x / 2 === walk.minX),
+    ).toBeGreaterThan(0);
+    expect(
+      touches((k) => k.centre.x + k.size.x / 2 === walk.maxX),
+    ).toBeGreaterThan(0);
   });
 });
 

@@ -5,12 +5,7 @@
  * instanced mesh of camera-facing quads.
  */
 
-import {
-  alleyWallBox,
-  buildingFootprint,
-  type Rect,
-  type Vec3,
-} from "./buildingLayout";
+import { sidewalkRect, type Rect, type Vec3 } from "./buildingLayout";
 import { createRng } from "./rng";
 
 export const FOG_WISPS = {
@@ -20,7 +15,7 @@ export const FOG_WISPS = {
   sizeM: [8, 15],
   /** Height of a wisp's quad over its width: long, low streaks of mist. */
   aspect: 0.45,
-  /** Clear room between a wisp's edge and the building or alley wall. */
+  /** Clear room between a wisp's edge and the pavement's corners. */
   clearanceM: 1.5,
   /** Extra orbit radius past the clearance, so wisps spread out in depth. */
   spreadM: 8,
@@ -67,21 +62,17 @@ export type WispPose = {
   readonly tiltRad: number;
 };
 
-/** The farthest any building or alley-wall corner is from the building's vertical axis. */
+/**
+ * The farthest any pavement corner is from the building's vertical axis. The pavement
+ * (task 24) holds the building, the kerb and the utility poles, so wisps drifting outside
+ * it never cut into any of them; it reaches about as far as the old alley wall (gone in task 24) did.
+ */
 export function obstacleRadiusM(): number {
-  const rects: Rect[] = [buildingFootprint()];
-  const wall = alleyWallBox();
-  rects.push({
-    minX: wall.centre.x - wall.size.x / 2,
-    maxX: wall.centre.x + wall.size.x / 2,
-    minZ: wall.centre.z - wall.size.z / 2,
-    maxZ: wall.centre.z + wall.size.z / 2,
-  });
+  const r: Rect = sidewalkRect();
   let radius = 0;
-  for (const r of rects)
-    for (const x of [r.minX, r.maxX])
-      for (const z of [r.minZ, r.maxZ])
-        radius = Math.max(radius, Math.hypot(x, z));
+  for (const x of [r.minX, r.maxX])
+    for (const z of [r.minZ, r.maxZ])
+      radius = Math.max(radius, Math.hypot(x, z));
   return radius;
 }
 
