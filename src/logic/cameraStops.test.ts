@@ -27,7 +27,7 @@ import {
   closeUpSide,
   stopPose,
 } from "./cameraStops";
-import { graffitiLayout, postersViewPose } from "./graffitiLayout";
+import { MAX_POSTERS, graffitiLayout, postersViewPose } from "./graffitiLayout";
 import { skillSignsLayout, signsViewPose } from "./skillSignsLayout";
 
 const EXPLORING: AppMode = { kind: "exploring" };
@@ -153,14 +153,16 @@ describe("the posters' close-up", () => {
   const pose = postersViewPose();
   const camera = posePosition(pose);
 
-  it("stands back over the alley's pavement and sees every poster with nothing in the way", () => {
-    expect(camera.z).toBeLessThan(-BUILDING.depthM / 2 - 3);
-    expect(camera.z).toBeGreaterThan(-BUILDING.depthM / 2 - 9);
+  it("stands back past the alley's kerb and sees every poster with nothing in the way", () => {
+    // Task 27: the posters spread over three floors, so the camera stands further back,
+    // about level with the first floor, but still well inside the side view's distance.
+    expect(camera.z).toBeLessThan(-BUILDING.depthM / 2 - STREET.alleyWidthM);
+    expect(camera.z).toBeGreaterThan(-BUILDING.depthM / 2 - 16);
     expect(camera.y).toBeGreaterThan(STREET.curbHeightM + 3);
-    expect(camera.y).toBeLessThan(8);
+    expect(camera.y).toBeLessThan(10);
     // A sight line to the middle and every corner of each poster misses every prop and tube
     // (task 26: the poles are gone), up to the paint just off the wall.
-    const layout = graffitiLayout(8, 1);
+    const layout = graffitiLayout(MAX_POSTERS, 1);
     const targets = layout.posters.flatMap((p) => {
       const cs = p.quad.corners;
       const mid = cs.reduce(
@@ -186,22 +188,61 @@ describe("the posters' close-up", () => {
     }
   });
 
-  it("frames a three-poster row centred behind the centred panel on a 16:9 window", () => {
-    const layout = graffitiLayout(3, 1);
-    const distance = Math.hypot(
-      camera.z - pose.target.z,
-      camera.y - pose.target.y,
-    );
-    // The back wall faces -z, so the visitor's right is -x.
-    const ndc = (x: number): number =>
-      -(x - pose.target.x) / (distance * Math.tan(25 * DEG) * (16 / 9));
-    // The whole row is in view and centred, behind the centred panel (task 18).
-    const xs = layout.posters.flatMap((p) => p.quad.corners.map((c) => c.x));
-    expect(ndc(Math.max(...xs))).toBeGreaterThan(-1);
-    expect(ndc(Math.min(...xs))).toBeLessThan(1);
-    expect(
-      Math.abs((ndc(Math.max(...xs)) + ndc(Math.min(...xs))) / 2),
-    ).toBeLessThan(0.15);
+  /** Where a world point lands on a 16:9 window, from -1 to 1 each way (the app's 50° camera). */
+  const halfTan = Math.tan(25 * DEG);
+  const forward = (() => {
+    const d = {
+      x: pose.target.x - camera.x,
+      y: pose.target.y - camera.y,
+      z: pose.target.z - camera.z,
+    };
+    const l = Math.hypot(d.x, d.y, d.z);
+    return { x: d.x / l, y: d.y / l, z: d.z / l };
+  })();
+  // The back wall faces -z, so the visitor's right is -x; up is square to both.
+  const right = { x: -1, y: 0, z: 0 };
+  const up = {
+    x: right.y * forward.z - right.z * forward.y,
+    y: right.z * forward.x - right.x * forward.z,
+    z: right.x * forward.y - right.y * forward.x,
+  };
+  const project = (p: Vec3): { x: number; y: number } => {
+    const d = { x: p.x - camera.x, y: p.y - camera.y, z: p.z - camera.z };
+    const depth = d.x * forward.x + d.y * forward.y + d.z * forward.z;
+    return {
+      x:
+        (d.x * right.x + d.y * right.y + d.z * right.z) /
+        depth /
+        (halfTan * (16 / 9)),
+      y: (d.x * up.x + d.y * up.y + d.z * up.z) / depth / halfTan,
+    };
+  };
+
+  for (const count of [3, MAX_POSTERS])
+    it(`frames all ${String(count)} posters centred behind the centred panel on a 16:9 window`, () => {
+      const layout = graffitiLayout(count, 1);
+      const pts = layout.posters.flatMap((p) => p.quad.corners.map(project));
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      // Every poster is in view across three floors, and the spread is centred behind the
+      // centred panel (task 18).
+      for (const p of pts) {
+        expect(Math.abs(p.x)).toBeLessThan(0.95);
+        expect(Math.abs(p.y)).toBeLessThan(0.95);
+      }
+      expect(Math.abs((Math.max(...xs) + Math.min(...xs)) / 2)).toBeLessThan(
+        0.15,
+      );
+      expect(Math.abs((Math.max(...ys) + Math.min(...ys)) / 2)).toBeLessThan(
+        0.15,
+      );
+    });
+
+  it("shows every poster at least an eighth of the window high, so it reads", () => {
+    for (const poster of graffitiLayout(MAX_POSTERS, 1).posters) {
+      const ys = poster.quad.corners.map((c) => project(c).y);
+      expect((Math.max(...ys) - Math.min(...ys)) / 2).toBeGreaterThan(1 / 8);
+    }
   });
 });
 

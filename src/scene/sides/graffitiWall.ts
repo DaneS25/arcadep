@@ -50,8 +50,8 @@ export type GraffitiWall = {
   /** Everything drawn, plus the pick area. */
   readonly object: Group;
   /**
-   * What picking registers as `spot-back`: an invisible quad over the poster row only, so
-   * a click on the graffiti higher up or along the wall does nothing (task 19).
+   * What picking registers as `spot-back`: invisible quads over the posters only, so a
+   * click on the graffiti round them does nothing (task 19; one per poster since task 27).
    */
   readonly pickObject: Group;
   /**
@@ -378,10 +378,11 @@ function drawPoster(
 
 /**
  * The back side's graffiti alley: layered procedural graffiti over the whole back wall up
- * into the second storey (task 19) and a paste-up poster per project on the ground floor.
+ * into the second storey (task 19) and a big paste-up poster per project, spread over all
+ * three floors (task 27).
  * The graffiti and every poster share one atlas canvas texture and merge into one mesh (one
- * draw call). Only the poster row is picked as `spot-back` (an invisible quad, never
- * drawn), and only the posters glow brighter on hover: a per-vertex poster flag and a
+ * draw call). Only the posters are picked as `spot-back` (invisible quads, never drawn),
+ * and only the posters glow brighter on hover: a per-vertex poster flag and a
  * `posterGlow` uniform patched into the standard material, so still one draw call. Thumbnails come in after loading; until then (or if one is
  * missing) a poster shows a generated placeholder.
  */
@@ -464,7 +465,8 @@ export function createGraffitiWall(
   const mesh = new Mesh(geometry, material);
   mesh.name = "graffiti";
 
-  const pickGeometry = toGeometry(atlasQuadGeometryData([layout.pickArea]));
+  // One invisible quad per poster (task 27): the posters spread over three floors now.
+  const pickGeometry = toGeometry(atlasQuadGeometryData(layout.pickAreas));
   const pickMaterial = new MeshBasicMaterial({ visible: false });
   const pickMesh = new Mesh(pickGeometry, pickMaterial);
   pickMesh.name = "graffiti-posters-pick";

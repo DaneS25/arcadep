@@ -1,11 +1,13 @@
 /**
  * The graffiti alley on the back side (task 12): a wall of procedural tags with a paste-up
  * poster per project on top. Since task 19 the tags cover the whole back wall from the
- * ground up into the second storey (`TAG_AREA`), while the posters stay in the back
- * interaction spot on the ground floor, which is also the only part picked. The tags and
- * every poster share one atlas canvas texture: the tag layer across the top band, then one
- * cell per poster below it. All the quads merge into one mesh (one draw call). Pure numbers
- * in metres and pixels; `scene/sides/graffitiWall.ts` builds the mesh and draws the atlas.
+ * ground up into the second storey (`TAG_AREA`). Since task 27 the posters are much bigger
+ * and spread over all three floors, each in its own hand-placed slot (`POSTER_SLOTS`) clear
+ * of the doors, windows, fire escape, lamp, ducts, pipes and AC units; only the posters
+ * themselves are picked. The tags and every poster share one atlas canvas texture: the tag
+ * layer across the top band, then one cell per poster below it. All the quads merge into
+ * one mesh (one draw call). Pure numbers in metres and pixels;
+ * `scene/sides/graffitiWall.ts` builds the mesh and draws the atlas.
  *
  * Local coordinates as in `cabinetLayout`: `across` runs to the right of a visitor facing
  * the wall (0 at the spot's centre), `up` from the spot's bottom, `out` from the spot's
@@ -61,30 +63,116 @@ export const GRAFFITI_TEXTURE = {
   posterColumns: 8,
 } as const;
 
+/**
+ * Where the posters are pasted (task 27), in wall coordinates on the back side: `alongM` to
+ * the right of a visitor facing the wall, `centreY` above the ground, and how wide the
+ * poster is. Hand-placed like the windows, round everything fixed on the wall: three on the
+ * ground floor between the back doors, one on the first floor between its right-hand window
+ * and the fire escape, two on the second floor either side. Filled in this order, so even a
+ * few projects spread over all three floors (ground, first, second, then the gaps).
+ */
+export const POSTER_SLOTS: readonly {
+  readonly alongM: number;
+  readonly centreY: number;
+  readonly widthM: number;
+  /** How far the poster may wander from the slot's centre, across and up. */
+  readonly jitterAcrossM: number;
+  readonly jitterUpM: number;
+}[] = [
+  // Ground floor, middle: between the back doors, under the floor band's neon.
+  {
+    alongM: -0.6,
+    centreY: 2.35,
+    widthM: 1.8,
+    jitterAcrossM: 0.05,
+    jitterUpM: 0.1,
+  },
+  // First floor: right of its right-hand window, left of the fire escape's landing.
+  {
+    alongM: 2.55,
+    centreY: 6.75,
+    widthM: 1.7,
+    jitterAcrossM: 0.05,
+    jitterUpM: 0.1,
+  },
+  // Second floor, left: between the drain pipe and the window, under the pipe run.
+  {
+    alongM: -4.72,
+    centreY: 9.95,
+    widthM: 1.15,
+    jitterAcrossM: 0.02,
+    jitterUpM: 0.1,
+  },
+  // Ground floor, left and right of the middle one.
+  {
+    alongM: -3.05,
+    centreY: 2.35,
+    widthM: 1.8,
+    jitterAcrossM: 0.05,
+    jitterUpM: 0.1,
+  },
+  {
+    alongM: 1.85,
+    centreY: 2.35,
+    widthM: 1.8,
+    jitterAcrossM: 0.05,
+    jitterUpM: 0.1,
+  },
+  // Second floor, right: between the window and the AC unit.
+  {
+    alongM: 2.69,
+    centreY: 9.95,
+    widthM: 1.4,
+    jitterAcrossM: 0.03,
+    jitterUpM: 0.1,
+  },
+];
+
 /** At most this many posters are pasted up; the Projects panel still lists every project. */
-export const MAX_POSTERS = 8;
+export const MAX_POSTERS = POSTER_SLOTS.length;
 
 export const POSTER_SIZES = {
-  /** Widest a poster gets. */
-  maxWidthM: 1.1,
   /** Height over width, the same as an atlas cell. */
   aspect: GRAFFITI_TEXTURE.posterHeightPx / GRAFFITI_TEXTURE.posterWidthPx,
-  /** Kept clear at each end of the wall. */
-  marginM: 0.3,
-  /** Least gap between neighbouring posters. */
-  gapM: 0.2,
   /** Posters are pasted a little crooked, up to this much either way. */
   maxTiltRad: 0.06,
-  /** Poster centres sit this high up the spot, give or take `upJitterM`. */
-  centreUpM: 1.85,
-  upJitterM: 0.15,
 } as const;
+
+/**
+ * The most of the back wall a poster in slot `index` can cover, crooked and shifted as far
+ * as it may go: the rectangle the other props keep clear of (the generator and the wires in
+ * tasks 28 and 29 too).
+ */
+export function posterSlotRect(index: number): WallRect | undefined {
+  const slot = POSTER_SLOTS[index];
+  if (slot === undefined) return undefined;
+  const half = tiltedHalfExtents(
+    slot.widthM,
+    slot.widthM * POSTER_SIZES.aspect,
+    POSTER_SIZES.maxTiltRad,
+  );
+  return {
+    side: GRAFFITI_SIDE,
+    minAlong: slot.alongM - half.x - slot.jitterAcrossM,
+    maxAlong: slot.alongM + half.x + slot.jitterAcrossM,
+    minY: slot.centreY - half.y - slot.jitterUpM,
+    maxY: slot.centreY + half.y + slot.jitterUpM,
+  };
+}
+
+/** Every slot's rectangle (`posterSlotRect`), whether or not a poster is pasted in it. */
+export function posterKeepOut(): WallRect[] {
+  return POSTER_SLOTS.flatMap((_, i) => {
+    const rect = posterSlotRect(i);
+    return rect === undefined ? [] : [rect];
+  });
+}
 
 /** Distance out from the spot's back face: the tags just off the wall, the posters over them. */
 export const LAYER_OUT_M = {
   tags: 0.01,
   posters: 0.016,
-  /** The invisible pick area, just in front of the posters. */
+  /** The invisible pick quads, just in front of the posters. */
   pick: 0.02,
 } as const;
 
@@ -127,10 +215,10 @@ export type GraffitiLayout = {
   /** The tag layer, covering `TAG_AREA` (the whole back wall up into the second storey). */
   readonly wall: AtlasQuad;
   /**
-   * The picked area: the back spot (where the posters are), just in front of them. Clicks
-   * on the rest of the graffiti do nothing, so only the poster row opens the Projects panel.
+   * The picked areas: one invisible quad over each poster, just in front of it (task 27).
+   * Clicks on the rest of the graffiti do nothing, so only a poster opens the Projects panel.
    */
-  readonly pickArea: AtlasQuad;
+  readonly pickAreas: readonly AtlasQuad[];
   /** Its band of the atlas. */
   readonly wallRect: PixelRect;
   /**
@@ -189,9 +277,9 @@ export function tiltedHalfExtents(
 }
 
 /**
- * Where `count` posters (capped at `MAX_POSTERS`) are pasted on the back spot: one row,
- * each in its own equal slot along the wall, a little crooked and a little up or down.
- * `seed` fixes the crookedness, so the wall looks the same on every load.
+ * Where `count` posters (capped at `MAX_POSTERS`) are pasted on the back wall: one in each
+ * of the first `count` slots of `POSTER_SLOTS`, a little crooked and a little off the slot's
+ * centre. `seed` fixes the crookedness, so the wall looks the same on every load.
  */
 export function graffitiLayout(
   count: number,
@@ -249,36 +337,22 @@ export function graffitiLayout(
     0,
     rectUv(wallRect),
   );
-  const pickArea = quadAt(
-    0,
-    spot.size.y / 2,
-    LAYER_OUT_M.pick,
-    spot.size.x,
-    spot.size.y,
-    0,
-    rectUv(wallRect),
-  );
-
-  const usable = spot.size.x - 2 * s.marginM;
-  const slot = n > 0 ? usable / n : usable;
-  // Wide enough to fill the slot, but turned at the steepest tilt it still leaves the gap.
-  const worst = tiltedHalfExtents(1, s.aspect, s.maxTiltRad);
-  const width = Math.min(s.maxWidthM, (slot - s.gapM) / (2 * worst.x));
-  const height = width * s.aspect;
+  // Slots are in wall coordinates; the quads in the spot's local ones.
+  const local = (alongM: number, y: number) =>
+    toLocal(spot, pointOnSide(side, alongM, y, 0));
 
   const posters: PosterPlacement[] = [];
   for (let i = 0; i < n; i += 1) {
+    const slot = POSTER_SLOTS[i];
+    if (slot === undefined) break;
+    const width = slot.widthM;
+    const height = width * s.aspect;
     const tiltRad = rng.range(-s.maxTiltRad, s.maxTiltRad);
-    const half = tiltedHalfExtents(width, height, tiltRad);
-    const slotCentre = -usable / 2 + slot * (i + 0.5);
-    // Room to wander inside the slot, keeping half the gap clear at each edge.
-    const freeAcross = Math.max(0, slot / 2 - s.gapM / 2 - half.x);
-    const across = slotCentre + rng.range(-1, 1) * freeAcross;
-    const freeUp = Math.max(0, Math.min(s.upJitterM, spot.size.y / 2 - half.y));
-    const up = Math.min(
-      spot.size.y - half.y,
-      Math.max(half.y, s.centreUpM + rng.range(-1, 1) * freeUp),
+    const centre = local(
+      slot.alongM + rng.range(-1, 1) * slot.jitterAcrossM,
+      slot.centreY + rng.range(-1, 1) * slot.jitterUpM,
     );
+    const { across, up } = centre;
     const cell = posterCell(i);
     posters.push({
       quad: quadAt(
@@ -299,6 +373,17 @@ export function graffitiLayout(
       centre: toWorld(spot, across, up, LAYER_OUT_M.posters),
     });
   }
+  const pickAreas = posters.map((p) =>
+    quadAt(
+      p.across,
+      p.up,
+      LAYER_OUT_M.pick,
+      p.widthM,
+      p.heightM,
+      p.tiltRad,
+      rectUv(p.cell),
+    ),
+  );
 
   const clearRects = glassRects(side).map((rect) =>
     wallPixelRect(spot, wallRect, rect),
@@ -309,7 +394,7 @@ export function graffitiLayout(
     id: spot.id,
     spot,
     wall,
-    pickArea,
+    pickAreas,
     wallRect,
     clearRects,
     posters,
@@ -429,28 +514,33 @@ export function posterAt(
 }
 
 /**
- * How the camera frames the posters while the Projects panel is open (task 14). Since the
- * tall alley wall came down (task 19) the camera no longer has to hang over the 4 m alley
- * looking steeply down: it stands back over the alley's pavement (no wall since task 24) at about head height of a first
- * floor window and looks across at the row. Like the signs' view, it is aimed at the row's
- * centre (`offsetAcrossM` 0, task 18), behind the centred panel.
+ * How the camera frames the posters while the Projects panel is open (task 14). Since
+ * task 27 the posters spread over all three floors, so the camera stands back past the
+ * alley's kerb, about level with the first floor, and looks straight across at the whole
+ * spread (every poster in view). Like the signs' view, it is aimed at the spread's centre,
+ * behind the centred panel (task 18).
  */
 export const POSTERS_VIEW = {
-  polarRad: (62 * Math.PI) / 180,
-  distanceM: 7.5,
-  offsetAcrossM: 0,
+  polarRad: (80 * Math.PI) / 180,
+  distanceM: 12,
 } as const;
 
-/** Where the camera stops to look at the posters: the centre of their row. */
-export function postersViewPose(side: Side = GRAFFITI_SIDE): CameraPose {
-  const spot = spotFor(side);
+/** The centre of every poster slot's rectangle together, in wall coordinates. */
+export function posterSpreadCentre(): { alongM: number; y: number } {
+  const rects = posterKeepOut();
+  const min = (f: (r: WallRect) => number) => Math.min(...rects.map(f));
+  const max = (f: (r: WallRect) => number) => Math.max(...rects.map(f));
   return {
-    target: toWorld(
-      spot,
-      POSTERS_VIEW.offsetAcrossM,
-      POSTER_SIZES.centreUpM,
-      LAYER_OUT_M.posters,
-    ),
+    alongM: (min((r) => r.minAlong) + max((r) => r.maxAlong)) / 2,
+    y: (min((r) => r.minY) + max((r) => r.maxY)) / 2,
+  };
+}
+
+/** Where the camera stops to look at the posters: the centre of their spread. */
+export function postersViewPose(side: Side = GRAFFITI_SIDE): CameraPose {
+  const centre = posterSpreadCentre();
+  return {
+    target: pointOnSide(side, centre.alongM, centre.y, LAYER_OUT_M.posters),
     orbit: {
       azimuthRad: sideAzimuthRad(side),
       polarRad: POSTERS_VIEW.polarRad,

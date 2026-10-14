@@ -773,7 +773,7 @@ test.describe("back: graffiti alley", () => {
     await expect(canvas).toHaveAttribute("data-app-state", "panel");
     await page.screenshot({ path: "test-results/back-projects-panel.png" });
 
-    // The posters' close-up over the alley's pavement (task 24: no kerb wall; task 26: no poles,
+    // The posters' close-up from past the alley's kerb (task 27: all three floors; task 26: no poles,
     // the purple tube up the back corner), with the panel hidden just for this screenshot.
     await page.evaluate(() => {
       const style = document.createElement("style");
@@ -795,7 +795,7 @@ test.describe("back: graffiti alley", () => {
     await expect(canvas).toBeFocused();
   });
 
-  test("clicking the graffiti above the posters opens nothing", async ({
+  test("clicking the graffiti between the posters opens nothing", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -807,10 +807,11 @@ test.describe("back: graffiti alley", () => {
     const box = await canvas.boundingBox();
     if (box === null) throw new Error("canvas has no box");
 
-    // Bare paint on the first floor, above the vent and clear of the windows.
+    // Bare paint on the first floor, left of its middle window and well clear of every
+    // poster (task 27: the posters spread over all three floors).
     const high = screenPointFromSide(
       "back",
-      pointOnSide("back", 1.9, 7.6, 0.07),
+      pointOnSide("back", -2.2, 7.3, 0.07),
       box,
     );
     await page.mouse.click(high.x, high.y);
@@ -820,7 +821,7 @@ test.describe("back: graffiti alley", () => {
     await page.screenshot({ path: "test-results/back-graffiti-full.png" });
   });
 
-  test("only the posters light up while the poster row is focused", async ({
+  test("only the posters light up while the back wall is focused", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -848,7 +849,7 @@ test.describe("back: graffiti alley", () => {
       (await cdp.send("Page.captureScreenshot", { format: "png", clip })).data;
     const posterClip = clipAt(screenPointFromSide("back", poster.centre, box));
     const paintClip = clipAt(
-      screenPointFromSide("back", pointOnSide("back", 1.9, 7.6, 0.07), box),
+      screenPointFromSide("back", pointOnSide("back", -2.2, 7.3, 0.07), box),
     );
     // Keep the pointer off the wall so only focus lights it.
     await page.mouse.move(box.x + 4, box.y + 4);

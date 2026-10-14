@@ -94,7 +94,7 @@ export const DUCT_RUNS = {
   /** Front: a boiler flue on the top floor; right: an extractor stub. */
   flue: { side: "front", alongM: -1.25, y: 10.2 },
   stub: { side: "right", alongM: -0.5, y: 10.6 },
-  /** Back: a dryer stub over the poster row, near the lamp. */
+  /** Back: a dryer stub over the ground-floor posters, near the lamp. */
   backStub: { side: "back", alongM: 3.4, y: 3.74 },
   /** The drain grate on the alley's pavement in front of the lit door. */
   grate: { alongM: 3.9, outM: 2 },
