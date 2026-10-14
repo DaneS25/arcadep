@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   BUILDING,
   STREET,
-  alleyWallBox,
   interactionSpots,
   sideNormal,
   sidewalkRect,
@@ -126,31 +125,34 @@ describe("detailLayout", () => {
     );
   });
 
-  it("hangs the alley's cables from utility poles standing in the low alley wall", () => {
-    const wall = alleyWallBox();
+  it("hangs the alley's cables from utility poles standing on the back kerb", () => {
+    const walk = sidewalkRect();
     const poles = layout.boxes.filter(
       ({ box }) => Math.abs(box.size.y - POLE.heightM) < EPS,
     );
     expect(poles).toHaveLength(POLE.alongM.length);
     for (const { box } of poles) {
-      expect(box.centre.y - box.size.y / 2).toBeCloseTo(0);
-      expect(Math.abs(box.centre.z - wall.centre.z)).toBeLessThan(
-        wall.size.z / 2,
+      // On the kerb stones, inside the pavement's back edge.
+      expect(box.centre.y - box.size.y / 2).toBeCloseTo(
+        STREET.curbHeightM + STREET.kerbRiseM,
       );
-      expect(box.size.y).toBeGreaterThan(STREET.alleyWallHeightM * 5);
+      expect(box.centre.z - box.size.z / 2).toBeGreaterThan(walk.minZ);
+      expect(box.centre.z + box.size.z / 2).toBeLessThan(
+        walk.minZ + STREET.kerbWidthM,
+      );
     }
     const alleyEnds = layout.beams
       .filter((b) => b.kind === "cable")
       .flatMap((b) => [b.from, b.to])
       // Cable points reaching across to the far side of the alley.
-      .filter((p) => p.z < wall.centre.z + wall.size.z / 2 + 0.2);
+      .filter((p) => p.z < walk.minZ + 0.6);
     expect(alleyEnds.length).toBeGreaterThan(0);
     for (const end of alleyEnds) {
       const onPole = poles.some(
         ({ box }) =>
           Math.abs(end.x - box.centre.x) <= box.size.x / 2 + EPS &&
           Math.abs(end.z - box.centre.z) <= box.size.z / 2 + 0.01 &&
-          end.y <= box.size.y,
+          end.y <= box.centre.y + box.size.y / 2,
       );
       expect(onPole).toBe(true);
     }
@@ -164,19 +166,21 @@ describe("detailLayout", () => {
     }
   });
 
-  it("puts the puddles on the street, not on the pavement", () => {
-    const pavement = sidewalkRect();
+  it("puts the puddles on the pavement, inside the kerb and off the walls", () => {
+    const walk = sidewalkRect();
+    const k = STREET.kerbWidthM;
+    let count = 0;
     for (const { kind, box } of layout.boxes) {
       if (kind !== "puddle") continue;
-      expect(box.centre.y - box.size.y / 2).toBeGreaterThan(0);
+      count += 1;
+      expect(box.centre.y - box.size.y / 2).toBeGreaterThan(STREET.curbHeightM);
       expect(box.size.y).toBe(DETAIL_SIZES.puddleM);
-      const onPavement =
-        box.centre.x + box.size.x / 2 > pavement.minX &&
-        box.centre.x - box.size.x / 2 < pavement.maxX &&
-        box.centre.z + box.size.z / 2 > pavement.minZ &&
-        box.centre.z - box.size.z / 2 < pavement.maxZ;
-      expect(onPavement).toBe(false);
+      expect(box.centre.x - box.size.x / 2).toBeGreaterThan(walk.minX + k);
+      expect(box.centre.x + box.size.x / 2).toBeLessThan(walk.maxX - k);
+      expect(box.centre.z - box.size.z / 2).toBeGreaterThan(walk.minZ + k);
+      expect(box.centre.z + box.size.z / 2).toBeLessThan(walk.maxZ - k);
     }
+    expect(count).toBeGreaterThanOrEqual(6);
   });
 
   it("stays where the orbiting camera can never reach", () => {

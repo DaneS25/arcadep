@@ -431,7 +431,7 @@ export function posterAt(
 /**
  * How the camera frames the posters while the Projects panel is open (task 14). Since the
  * tall alley wall came down (task 19) the camera no longer has to hang over the 4 m alley
- * looking steeply down: it stands back past the low wall at about head height of a first
+ * looking steeply down: it stands back over the alley's pavement (no wall since task 24) at about head height of a first
  * floor window and looks across at the row. Like the signs' view, it is aimed at the row's
  * centre (`offsetAcrossM` 0, task 18), behind the centred panel.
  */

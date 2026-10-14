@@ -227,7 +227,7 @@ function sideFacing(normal: Vec3): Side | undefined {
 /**
  * The wall atlas UV for one vertex of the walls or trim: faces on a side's wall map to its
  * cell by where they are; tops, undersides and anything off the walls (the parapets'
- * inner faces, the alley's kerb wall) get the `plain` patch.
+ * inner faces) get the `plain` patch.
  */
 export function grimeUv(normal: Vec3, position: Vec3): [number, number] {
   const plain = pixelUv(
@@ -342,7 +342,7 @@ function streak(
 }
 
 /** A wandering crack from a point, heading roughly `angleRad` (0 is right, π/2 is up). */
-function crack(
+export function crack(
   rng: Rng,
   along: number,
   y: number,
@@ -369,7 +369,7 @@ function crack(
 }
 
 /** A ragged polygon round a centre: 6 to 9 corners at uneven radii. */
-function raggedPolygon(
+export function raggedPolygon(
   rng: Rng,
   along: number,
   y: number,

@@ -2,13 +2,14 @@ import { Group, type Object3D, type Texture } from "three";
 import type { TextureSet } from "@/logic/assetFallback";
 import type { TextureSlot } from "@/logic/assetManifest";
 import {
-  alleyWallBox,
   bandBoxes,
   floorBoxes,
+  kerbBoxes,
   roofBoxes,
   sidewalkBox,
 } from "@/logic/buildingLayout";
-import { createWallGrime } from "../grime";
+import { sidewalkGrimeUvs } from "@/logic/sidewalkLayout";
+import { createSidewalkGrime, createWallGrime } from "../grime";
 import { createSurface } from "../surface";
 import {
   createInteractionSpots,
@@ -20,7 +21,7 @@ export type Building = {
   object: Group;
   /** Each side's interaction marker, for picking in task 7. */
   spots: InteractionSpots;
-  /** Solid parts that hide a spot behind them from picking (walls, trim and roof, alley wall). */
+  /** Solid parts that hide a spot behind them from picking (walls, trim and roof). */
   occluders: readonly Object3D[];
   applyTextures(
     textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>,
@@ -29,26 +30,29 @@ export type Building = {
 };
 
 /**
- * The building on its street corner: three floors and the alley wall (one merged wall
- * surface), floor bands, roof and parapets (one merged trim surface), the pavement and
- * each side's interactive prop. Three draw calls plus the props. The walls and trim share
- * one generated grime atlas (task 22): streaks, stains, cracks, chips and rust runs.
+ * The building on its street corner: three floors (one merged wall surface), floor bands,
+ * roof and parapets (one merged trim surface), the pavement with its kerb stones all the
+ * way round (task 24) and each side's interactive prop. Three draw calls plus the props.
+ * The walls and trim share one generated grime atlas (task 22): streaks, stains, cracks,
+ * chips and rust runs; the pavement has its own, seen from above (cracks, joints, stains).
  */
 export function createBuilding(content: SpotsContent): Building {
   const grime = createWallGrime();
-  const walls = createSurface(
-    "wall",
-    [...floorBoxes(), alleyWallBox()],
-    "walls",
-    grime,
-  );
+  const pavementGrime = createSidewalkGrime();
+  const walls = createSurface("wall", floorBoxes(), "walls", grime);
   const trim = createSurface(
     "trim",
     [...bandBoxes(), ...roofBoxes()],
     "trim",
     grime,
   );
-  const sidewalk = createSurface("sidewalk", [sidewalkBox()], "sidewalk");
+  const sidewalk = createSurface(
+    "sidewalk",
+    [sidewalkBox(), ...kerbBoxes()],
+    "sidewalk",
+    pavementGrime,
+    sidewalkGrimeUvs,
+  );
   const surfaces = [walls, trim, sidewalk];
 
   const group = new Group();
@@ -70,6 +74,7 @@ export function createBuilding(content: SpotsContent): Building {
       spots.dispose();
       for (const surface of surfaces) surface.dispose();
       grime.dispose();
+      pavementGrime.dispose();
     },
   };
 }

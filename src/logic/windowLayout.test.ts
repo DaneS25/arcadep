@@ -391,7 +391,7 @@ describe("windowLayout", () => {
     }
   });
 
-  it("hangs the fire escape's landing under its door and the ladder clear of the alley floor", () => {
+  it("hangs the fire escape's landing under its door and the ladder clear of the pavement", () => {
     const door = wallOpenings().find((o) => o.door === "fireEscape");
     if (door === undefined) throw new Error("no fire-escape door");
     const near = parts.boxes

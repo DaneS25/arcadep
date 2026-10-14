@@ -36,19 +36,17 @@ export const BUILDING = {
 } as const;
 
 export const STREET = {
-  /** Pavement around the front, left and right of the building. */
+  /** Pavement round the front, left and right of the building. */
   sidewalkWidthM: 3,
   curbHeightM: 0.15,
-  /** Gap between the back wall and the wall across the alley. */
-  alleyWidthM: 4,
   /**
-   * A low, waist-high wall across the alley (task 19): the 5 m wall it replaced hid the
-   * graffiti from the street side, but a kerb wall still closes the alley off.
+   * The pavement behind the building (the alley side), wider than the others. Since task 24
+   * there is no alley wall: the pavement runs straight past the back wall to a kerb.
    */
-  alleyWallHeightM: 1.1,
-  alleyWallThicknessM: 0.4,
-  /** How far the alley wall runs past each side of the building. */
-  alleyWallOverrunM: 4,
+  alleyWidthM: 4,
+  /** Kerb stones along the pavement's outer edge: this wide, standing a little proud. */
+  kerbWidthM: 0.3,
+  kerbRiseM: 0.02,
 } as const;
 
 /** Axis-aligned rectangle on the ground (x and z). */
@@ -218,46 +216,65 @@ export function buildingFootprint(): Rect {
   };
 }
 
-/** The pavement: wraps the front, left and right of the building; the back opens onto the alley. */
+/** The pavement: wraps the whole building, wider at the back (the alley side, task 24). */
 export function sidewalkRect(): Rect {
   const w = STREET.sidewalkWidthM;
   const fp = buildingFootprint();
   return {
     minX: fp.minX - w,
     maxX: fp.maxX + w,
-    minZ: fp.minZ,
+    minZ: fp.minZ - STREET.alleyWidthM,
     maxZ: fp.maxZ + w,
   };
 }
 
-/** The alley floor between the back wall and the wall across from it. */
+/** The pavement's top, which every ground-floor door, the cabinet and the street props stand on. */
+export function pavementY(): number {
+  return STREET.curbHeightM;
+}
+
+/** The strip of pavement behind the building: the alley side. */
 export function alleyRect(): Rect {
   const fp = buildingFootprint();
-  const overrun = STREET.alleyWallOverrunM;
+  const walk = sidewalkRect();
   return {
-    minX: fp.minX - overrun,
-    maxX: fp.maxX + overrun,
-    minZ: fp.minZ - STREET.alleyWidthM,
+    minX: walk.minX,
+    maxX: walk.maxX,
+    minZ: walk.minZ,
     maxZ: fp.minZ,
   };
 }
 
-/** The low wall across the alley from the building's back. */
-export function alleyWallBox(): Box {
-  const alley = alleyRect();
-  const t = STREET.alleyWallThicknessM;
-  return {
-    centre: {
-      x: (alley.minX + alley.maxX) / 2,
-      y: STREET.alleyWallHeightM / 2,
-      z: alley.minZ - t / 2,
+/**
+ * The kerb stones along the pavement's outer edge (task 24), front, back, left and right:
+ * `kerbWidthM` wide and `kerbRiseM` proud of the pavement, so the edge catches the light.
+ */
+export function kerbBoxes(): Box[] {
+  const r = sidewalkRect();
+  const k = STREET.kerbWidthM;
+  const h = STREET.curbHeightM + STREET.kerbRiseM;
+  const y = h / 2;
+  const width = r.maxX - r.minX;
+  const depth = r.maxZ - r.minZ - 2 * k;
+  const midZ = (r.minZ + r.maxZ) / 2;
+  return [
+    {
+      centre: { x: (r.minX + r.maxX) / 2, y, z: r.maxZ - k / 2 },
+      size: { x: width, y: h, z: k },
     },
-    size: {
-      x: alley.maxX - alley.minX,
-      y: STREET.alleyWallHeightM,
-      z: t,
+    {
+      centre: { x: (r.minX + r.maxX) / 2, y, z: r.minZ + k / 2 },
+      size: { x: width, y: h, z: k },
     },
-  };
+    {
+      centre: { x: r.minX + k / 2, y, z: midZ },
+      size: { x: k, y: h, z: depth },
+    },
+    {
+      centre: { x: r.maxX - k / 2, y, z: midZ },
+      size: { x: k, y: h, z: depth },
+    },
+  ];
 }
 
 /** Whether a ground point is inside a rectangle (edges count as inside). */
@@ -417,7 +434,7 @@ export const WINDOW = {
   groundHeightM: 2,
   /** Bottom of a window above its floor's base. */
   sillAboveFloorM: 1,
-  /** Ground floor: above the pavement (or the alley floor). */
+  /** Ground floor: above the pavement. */
   groundSillAboveFloorM: 0.75,
   /** Frame border round the glass, and how far the frame stands off the wall. */
   frameM: 0.08,
@@ -440,11 +457,6 @@ type OpeningSpec = {
   readonly flicker?: boolean;
 };
 
-/** The ground under a ground-floor opening: the pavement, or the alley floor at the back. */
-function groundY(side: Side): number {
-  return side === "back" ? 0 : STREET.curbHeightM;
-}
-
 function windowAt(
   side: Side,
   floor: number,
@@ -453,7 +465,7 @@ function windowAt(
   spec: OpeningSpec = {},
 ): WallOpening {
   const ground = floor === 0;
-  const base = ground ? groundY(side) : (floorLevels()[floor]?.baseY ?? 0);
+  const base = ground ? pavementY() : (floorLevels()[floor]?.baseY ?? 0);
   return {
     kind: "window",
     side,
@@ -477,10 +489,10 @@ function doorAt(
   look: WindowLook,
   spec: OpeningSpec = {},
 ): WallOpening {
-  // On the pavement or the alley floor, or upstairs just over the floor band.
+  // On the pavement, or upstairs just over the floor band.
   const bottomY =
     floor === 0
-      ? groundY(side)
+      ? pavementY()
       : (floorLevels()[floor]?.baseY ?? 0) + BUILDING.bandHeightM / 2;
   return {
     kind: "door",

@@ -1,6 +1,5 @@
 import {
   BUILDING,
-  STREET,
   floorLevels,
   pointOnSide,
   sideNormal,
@@ -9,6 +8,7 @@ import {
   type Box,
   type Side,
 } from "./buildingLayout";
+import { POLE, poleOutM } from "./detailLayout";
 
 /** Which palette token a neon tube glows in: red is the main accent, cyan and deep purple the secondary ones. */
 export type NeonColor = "accent" | "cyan" | "purple";
@@ -81,9 +81,33 @@ function corner(
 }
 
 /**
+ * A purple tube strapped up the utility pole at `POLE_TUBE.alongM` (task 24; it ran along
+ * the alley's kerb wall, now gone), on the pole's side facing the back wall, so it lights
+ * the alley and the posters.
+ */
+export const POLE_TUBE = { alongM: -3.2, fromY: 1.1, toY: 3.9 } as const;
+
+function poleTube(): NeonStrip {
+  const out = poleOutM() - POLE.sizeM / 2 - OUT;
+  return {
+    name: "alley-pole",
+    color: "purple",
+    box: {
+      centre: pointOnSide(
+        "back",
+        POLE_TUBE.alongM,
+        (POLE_TUBE.fromY + POLE_TUBE.toY) / 2,
+        out,
+      ),
+      size: { x: T, y: POLE_TUBE.toY - POLE_TUBE.fromY, z: T },
+    },
+  };
+}
+
+/**
  * The building's neon tubes: red lines under the floor bands and up the front corners,
  * a red line along the front parapet, plus cyan over the side door and on the left, and
- * purple along the top of the alley wall. One draw call in the scene (instanced).
+ * purple up a utility pole across the alley. One draw call in the scene (instanced).
  */
 export function neonStrips(): NeonStrip[] {
   const [ground, first] = floorLevels();
@@ -97,7 +121,6 @@ export function neonStrips(): NeonStrip[] {
   const top = wallHeightM();
   const parapetY =
     top + BUILDING.roofThicknessM + BUILDING.parapetHeightM - 0.15;
-  const alleyOut = STREET.alleyWidthM - OUT;
 
   return [
     horizontal(
@@ -136,14 +159,6 @@ export function neonStrips(): NeonStrip[] {
       halfW - inset,
       underBand(groundTop),
     ),
-    horizontal(
-      "alley-wall-top",
-      "purple",
-      "back",
-      -halfW - STREET.alleyWallOverrunM + 0.2,
-      halfW + STREET.alleyWallOverrunM - 0.2,
-      STREET.alleyWallHeightM - 0.1,
-      alleyOut,
-    ),
+    poleTube(),
   ];
 }

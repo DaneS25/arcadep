@@ -22,6 +22,12 @@ import {
   type GrimeMark,
   type TintId,
 } from "@/logic/grimeLayout";
+import {
+  SIDEWALK_GRIME,
+  sidewalkGrimeMarks,
+  sidewalkPixel,
+  sidewalkPxPerM,
+} from "@/logic/sidewalkLayout";
 import { STICKER_TILE, WEAR, stickers, type Sticker } from "@/logic/wearLayout";
 
 /** Maps a mark's metres (along, up) to canvas pixels. */
@@ -329,6 +335,38 @@ export function createPropGrime(doc: Document = document): GrimeTextures {
     t.wrapS = RepeatWrapping;
     t.wrapT = RepeatWrapping;
   }
+  return pair(colour, roughness);
+}
+
+/** The pavement seen from above (task 24): a neutral fill, then its marks. */
+function drawSidewalk(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  style: Style,
+): void {
+  ctx.fillStyle = tintStyle([1, 1, 1]);
+  ctx.fillRect(0, 0, size, size);
+  const k = size / SIDEWALK_GRIME.sizePx;
+  const toPixel: ToPixel = (x, z) => {
+    const p = sidewalkPixel(x, z);
+    return { x: p.x * k, y: p.y * k };
+  };
+  for (const mark of sidewalkGrimeMarks())
+    drawMark(ctx, mark, toPixel, sidewalkPxPerM() * k, style);
+}
+
+/**
+ * The pavement's grime (task 24), with its roughness at half the size: one top-down
+ * texture over the whole pavement and its kerbs.
+ */
+export function createSidewalkGrime(doc: Document = document): GrimeTextures {
+  const size = SIDEWALK_GRIME.sizePx;
+  const colour = canvasTexture(doc, size, size, (ctx) => {
+    drawSidewalk(ctx, size, colourStyle);
+  });
+  const roughness = canvasTexture(doc, size / 2, size / 2, (ctx) => {
+    drawSidewalk(ctx, size / 2, roughnessStyle);
+  });
   return pair(colour, roughness);
 }
 

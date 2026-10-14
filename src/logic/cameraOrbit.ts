@@ -24,8 +24,8 @@ export const CAMERA = {
   target: { x: 0, y: 6, z: 0 },
   /**
    * Lowest the camera can tilt: it stays 5° above the target's height, so even at the
-   * closest zoom it sits over 7 m up, above the street and the alley wall (waist high
-   * since task 19, 5 m before).
+   * closest zoom it sits over 7 m up, above the pavement and the utility poles' cables
+   * (the alley wall went in task 24).
    */
   maxPolarRad: 85 * DEG,
   /** Highest the camera can tilt, short of looking straight down. */
@@ -39,7 +39,8 @@ export const CAMERA = {
   maxDistanceM: 45,
   /**
    * How each side is framed when the arrow keys snap to it: high enough that the back
-   * view sees the alley side of the building over the alley wall (5 m tall until task 19).
+   * view sees the alley side of the building and its pavement (a 5 m alley wall stood
+   * there until task 19).
    */
   sidePolarRad: 58 * DEG,
   sideDistanceM: 28,

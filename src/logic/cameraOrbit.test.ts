@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  alleyWallBox,
   buildingFootprint,
   buildingHeightM,
   SIDES,
@@ -9,6 +8,7 @@ import {
   type Box,
   type Vec3,
 } from "./buildingLayout";
+import { utilityPoles } from "./detailLayout";
 import {
   CAMERA,
   clampOrbit,
@@ -104,11 +104,12 @@ describe("camera limits keep the camera outside the scene", () => {
     }
   });
 
-  it("never enters the building or the alley wall", () => {
+  it("never enters the building or the utility poles", () => {
     for (const orbit of samples) {
       const p = orbitPosition(orbit);
       expect(insideBox(p, building, 0.5)).toBe(false);
-      expect(insideBox(p, alleyWallBox(), 0.5)).toBe(false);
+      for (const pole of utilityPoles())
+        expect(insideBox(p, pole, 0.5)).toBe(false);
     }
   });
 
