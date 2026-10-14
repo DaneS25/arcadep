@@ -36,7 +36,9 @@ export type DetailKind =
   /** Planks nailed over a window. */
   | "board"
   /** A door leaf. */
-  | "door";
+  | "door"
+  /** A lamp's bulb (task 23): glows evenly with the atlas's lamp patch. */
+  | "lamp";
 
 export type DetailBox = { readonly kind: DetailKind; readonly box: Box };
 
@@ -86,11 +88,13 @@ export const DETAIL_TEXTURE = {
     dark: { x: 0, y: 384, width: 128, height: 128 },
     plateLit: { x: 128, y: 384, width: 128, height: 128 },
     puddle: { x: 256, y: 384, width: 256, height: 128 },
+    /** The back door lamp's bulb (task 23). */
+    lamp: { x: 512, y: 384, width: 128, height: 128 },
   },
 } as const satisfies {
   widthPx: number;
   heightPx: number;
-  rects: Record<SignId | "dark" | "plateLit" | "puddle", PixelRect>;
+  rects: Record<SignId | "dark" | "plateLit" | "puddle" | "lamp", PixelRect>;
 };
 
 /** A window cell of the atlas: one look of lit, shaded, dark or broken glass. */
@@ -255,7 +259,7 @@ function acUnit(side: Side, alongM: number, bottomY: number): DetailBox[] {
 }
 
 /** A louvred wall vent: a frame and three slats. */
-function vent(side: Side, alongM: number, bottomY: number): DetailBox[] {
+export function vent(side: Side, alongM: number, bottomY: number): DetailBox[] {
   const frame = { across: 0.6, up: 0.4, out: 0.05 };
   return [
     { kind: "metal", box: wallBox(side, alongM, bottomY, frame) },
@@ -823,7 +827,8 @@ export function centreUv(rect: PixelRect): [number, number] {
  * Merged vertex data for the whole layout. Boxes keep `boxesGeometryData`'s world UVs
  * (tiles of `tileM`); beams get four side faces each (their ends are too thin to see);
  * faces are quads mapped to their atlas rectangle. Puddles map the whole puddle patch on
- * every face; everything else samples the black patch.
+ * every face, lamp bulbs the middle of the lamp patch; everything else samples the black
+ * patch.
  */
 export function detailGeometryData(
   layout: DetailLayout,
@@ -842,6 +847,7 @@ export function detailGeometryData(
   const colors: number[] = [];
 
   const dark = centreUv(DETAIL_TEXTURE.rects.dark);
+  const lamp = centreUv(DETAIL_TEXTURE.rects.lamp);
   const puddle = detailUv(DETAIL_TEXTURE.rects.puddle);
   const puddleCorners: [number, number][] = [
     [puddle.uMin, puddle.vMin],
@@ -858,7 +864,12 @@ export function detailGeometryData(
   for (const part of layout.boxes)
     for (let face = 0; face < 6; face += 1)
       for (let corner = 0; corner < 4; corner += 1) {
-        const uv = part.kind === "puddle" ? puddleCorners[corner] : dark;
+        const uv =
+          part.kind === "puddle"
+            ? puddleCorners[corner]
+            : part.kind === "lamp"
+              ? lamp
+              : dark;
         atlasUvs.push(...(uv ?? dark));
         shade(part.kind);
       }

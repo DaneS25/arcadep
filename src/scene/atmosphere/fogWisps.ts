@@ -17,12 +17,22 @@ import {
   wispFade,
   wispPose,
 } from "@/logic/fogWisps";
-import { WISPS_LOOK } from "@/logic/lookConfig";
+import { backLampPosition, steamVents } from "@/logic/ductLayout";
+import { LAMP_LOOK, STEAM_LOOK, WISPS_LOOK } from "@/logic/lookConfig";
 import { createRng } from "@/logic/rng";
+import {
+  advanceSteamTime,
+  createPuffs,
+  lampGlow,
+  puffPose,
+} from "@/logic/steam";
 
 export type FogWisps = {
   readonly object: InstancedMesh;
-  /** Drifts the wisps on by `dtMs` (held still under reduced motion) and turns them to the camera. */
+  /**
+   * Drifts the wisps and the steam on by `dtMs` (both held still under reduced motion) and
+   * turns them to the camera.
+   */
   update(dtMs: number, reducedMotion: boolean, camera: Camera): void;
   dispose(): void;
 };
@@ -51,12 +61,15 @@ function drawWisp(ctx: CanvasRenderingContext2D, sizePx: number): void {
 }
 
 /**
- * Drifting fog wisps (task 15): every wisp is one instance of a single camera-facing quad,
- * so all of them cost one draw call. Additive and without depth writes, so they need no
- * sorting and only ever lighten the scene; they fade out as the camera comes close.
+ * Drifting fog wisps (task 15) and the vents' steam (task 23): every wisp and every puff
+ * of steam is one instance of a single camera-facing quad, so all of them cost one draw
+ * call. Additive and without depth writes, so they need no sorting and only ever lighten
+ * the scene; they fade out as the camera comes close. Puffs near the back door lamp take
+ * on its light.
  */
 export function createFogWisps(doc: Document = document): FogWisps {
   const wisps = createWisps();
+  const puffs = createPuffs(steamVents());
   const sizePx = WISPS_LOOK.texturePx;
   const canvas = doc.createElement("canvas");
   canvas.width = sizePx;
@@ -73,7 +86,11 @@ export function createFogWisps(doc: Document = document): FogWisps {
     depthWrite: false,
     blending: AdditiveBlending,
   });
-  const mesh = new InstancedMesh(geometry, material, wisps.length);
+  const mesh = new InstancedMesh(
+    geometry,
+    material,
+    wisps.length + puffs.length,
+  );
   mesh.name = "fog-wisps";
   // The wisps move, so their bounds do too; they ring the building and are nearly always in view.
   mesh.frustumCulled = false;
@@ -87,7 +104,16 @@ export function createFogWisps(doc: Document = document): FogWisps {
   const forward = new Vector3(0, 0, 1);
   const cameraPosition = new Vector3();
   const color = new Color();
+  const steamBase = new Color(STEAM_LOOK.color).multiplyScalar(
+    STEAM_LOOK.intensity,
+  );
+  const lampLight = new Color(LAMP_LOOK.color).multiplyScalar(
+    STEAM_LOOK.lampGain,
+  );
+  const lampAt = backLampPosition();
+  const lamp = new Vector3(lampAt.x, lampAt.y, lampAt.z);
   let timeS = 0;
+  let steamS = 0;
 
   const place = (camera: Camera): void => {
     camera.getWorldPosition(cameraPosition);
@@ -104,6 +130,27 @@ export function createFogWisps(doc: Document = document): FogWisps {
       const fade = wispFade(position.distanceTo(cameraPosition), wisp.sizeM);
       mesh.setColorAt(i, color.copy(base).multiplyScalar(wisp.strength * fade));
     });
+    puffs.forEach((puff, j) => {
+      const pose = puffPose(puff, steamS);
+      position.set(pose.position.x, pose.position.y, pose.position.z);
+      spin.setFromAxisAngle(forward, pose.spinRad);
+      scale.set(pose.sizeM, pose.sizeM, 1);
+      const i = wisps.length + j;
+      mesh.setMatrixAt(
+        i,
+        matrix.compose(position, spin.premultiply(facing), scale),
+      );
+      const fade = wispFade(position.distanceTo(cameraPosition), pose.sizeM);
+      const glow = lampGlow(position.distanceTo(lamp), LAMP_LOOK.distanceM);
+      mesh.setColorAt(
+        i,
+        color
+          .copy(lampLight)
+          .multiplyScalar(glow)
+          .add(steamBase)
+          .multiplyScalar(pose.opacity * fade),
+      );
+    });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
   };
@@ -112,6 +159,7 @@ export function createFogWisps(doc: Document = document): FogWisps {
     object: mesh,
     update(dtMs, reducedMotion, camera) {
       timeS = advanceWispTime(timeS, dtMs, reducedMotion);
+      steamS = advanceSteamTime(steamS, dtMs, reducedMotion);
       place(camera);
     },
     dispose() {

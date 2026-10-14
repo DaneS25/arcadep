@@ -33,6 +33,7 @@ import {
   type Vec3,
 } from "./buildingLayout";
 import { detailLayout } from "./detailLayout";
+import { withDucts } from "./ductLayout";
 import { createRng, type Rng } from "./rng";
 
 /** A colour multiplier in linear light: [1, 1, 1] leaves a surface as it is. */
@@ -272,7 +273,8 @@ export function rustSources(side: Side): RustSource[] {
   const t = sideTangent(side);
   const half = sideWidthM(side) / 2;
   const found: RustSource[] = [];
-  for (const part of detailLayout().boxes) {
+  // The ducts, flues and back door lamp (task 23) rust down the walls too.
+  for (const part of withDucts(detailLayout()).boxes) {
     if (part.kind !== "metal" && part.kind !== "plate") continue;
     const { centre, size } = part.box;
     const hn = Math.abs(dot(size, n)) / 2;

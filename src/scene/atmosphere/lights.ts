@@ -5,7 +5,8 @@ import {
   PointLight,
   type Light,
 } from "three";
-import { AMBIENT_LIGHTS, NEON_LIGHTS } from "@/logic/lookConfig";
+import { backLampPosition } from "@/logic/ductLayout";
+import { AMBIENT_LIGHTS, LAMP_LOOK, NEON_LIGHTS } from "@/logic/lookConfig";
 import { PALETTE } from "@/logic/palette";
 
 export type Lights = {
@@ -13,7 +14,10 @@ export type Lights = {
   dispose(): void;
 };
 
-/** Dim sky fill and moon, plus a coloured point light beside each group of neon. No shadows. */
+/**
+ * Dim sky fill and moon, a coloured point light beside each group of neon, and the dim
+ * cold lamp over the back door (task 23). No shadows.
+ */
 export function createLights(): Lights {
   const { hemisphere, moon } = AMBIENT_LIGHTS;
   const fill = new HemisphereLight(
@@ -35,7 +39,17 @@ export function createLights(): Lights {
     return light;
   });
 
-  const all: Light[] = [fill, moonLight, ...points];
+  const lamp = new PointLight(
+    LAMP_LOOK.color,
+    LAMP_LOOK.intensity,
+    LAMP_LOOK.distanceM,
+    LAMP_LOOK.decay,
+  );
+  lamp.name = "back-lamp";
+  const at = backLampPosition();
+  lamp.position.set(at.x, at.y, at.z);
+
+  const all: Light[] = [fill, moonLight, ...points, lamp];
   const group = new Group();
   group.name = "lights";
   group.add(...all);
