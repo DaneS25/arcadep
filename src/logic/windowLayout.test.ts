@@ -29,6 +29,7 @@ import {
   type DetailShades,
 } from "./detailLayout";
 import { posePosition, sidePose } from "./cameraOrbit";
+import { withDucts } from "./ductLayout";
 import { graffitiLayout } from "./graffitiLayout";
 import { maxFlashesPerSecond } from "./neonFlicker";
 import { neonStrips } from "./neonLayout";
@@ -55,6 +56,7 @@ const SHADES: DetailShades = {
   frame: 0.2,
   board: 0.4,
   door: 0.3,
+  lamp: 0,
 };
 
 const dot = (
@@ -116,7 +118,7 @@ function isHangingSignPlate(
 /** Everything already mounted on a side's wall that a window or door must keep clear of. */
 function wallProps(side: Side): WallRect[] {
   const boxes: Box[] = [
-    ...detailLayout()
+    ...withDucts(detailLayout())
       .boxes.filter((part) => part.kind !== "puddle")
       .map((part) => part.box),
     ...neonStrips().map((strip) => strip.box),

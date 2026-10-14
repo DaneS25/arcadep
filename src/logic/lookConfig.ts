@@ -219,6 +219,8 @@ export const DETAILS_LOOK = {
     frame: 0.18,
     board: 0.4,
     door: 0.26,
+    // The back door lamp's bulb (task 23): black under its glow, like the sign faces.
+    lamp: 0,
   },
   emissiveIntensity: 1.2,
   /**
@@ -279,6 +281,35 @@ export const WISPS_LOOK = {
   intensity: 0.14,
   /** Side of the generated wisp texture, in pixels. */
   texturePx: 128,
+} as const;
+
+/**
+ * Steam from the vents (task 23), drawn like the wisps (additive, pale) but smaller and
+ * thicker. Puffs near the back door lamp take on its cold violet light (`lampGain` at
+ * the lamp, falling off with `lampGlow`). Kept under the bloom threshold.
+ */
+export const STEAM_LOOK = {
+  color: "#a4a8c4",
+  /** Brightest a puff gets away from the lamp (its colour times this, times its opacity). */
+  intensity: 1,
+  /** Added at the lamp, in the lamp's colour. */
+  lampGain: 2.4,
+} as const;
+
+/**
+ * The dim caged lamp over the back door (task 23): a cold, violet-white bulb, no yellow
+ * or amber. Its point light reaches the door, the steam and the fire escape above it,
+ * and stops short of the poster row's middle. Not a fill light: exposure and fill stay
+ * as they are until task 25.
+ */
+export const LAMP_LOOK = {
+  /** The light's colour. */
+  color: "#b0a4ff",
+  intensity: 10,
+  distanceM: 7,
+  decay: 2,
+  /** The bulb's glow in the details atlas (times the details' emissive intensity). */
+  bulb: "#d6d0ff",
 } as const;
 
 export const TONE_MAPPING = {

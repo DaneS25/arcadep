@@ -38,6 +38,7 @@ const SHADES: DetailShades = {
   frame: 0.2,
   board: 0.4,
   door: 0.3,
+  lamp: 0,
 };
 
 function corners(box: Box): Vec3[] {

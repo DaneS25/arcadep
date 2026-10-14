@@ -6,6 +6,7 @@ import { skills } from "../src/content/skills";
 import type { Side, Vec3 } from "../src/logic/buildingLayout";
 import { pointOnSide, wallOpenings } from "../src/logic/buildingLayout";
 import { posePosition, sidePose } from "../src/logic/cameraOrbit";
+import { backLampPosition, steamVents } from "../src/logic/ductLayout";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
 import { seedFromText } from "../src/logic/neonFlicker";
 
@@ -223,6 +224,76 @@ test.describe("camera navigation", () => {
       expect(drawCalls).toBeLessThanOrEqual(12);
       await page.screenshot({ path: `test-results/grime-${side}.png` });
     }
+  });
+
+  test("the ducts, steam and back door lamp add no draw call, and the steam holds still under reduced motion", async ({
+    page,
+  }) => {
+    // A full-HD canvas renders slowly in headless Chromium.
+    test.slow();
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    // Ducts and the lamp join the details mesh; the steam is more instances of the fog
+    // wisps' mesh (task 23).
+    const budget = async (): Promise<void> => {
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+    };
+    await budget();
+    await page.screenshot({ path: "test-results/ducts-default.png" });
+
+    await page.keyboard.press("ArrowRight");
+    await expect(canvas).toHaveAttribute("data-camera-side", "right");
+    await budget();
+    await page.screenshot({ path: "test-results/ducts-right.png" });
+
+    await page.keyboard.press("ArrowRight");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await budget();
+    const lamp = screenPointFromSide("back", backLampPosition(), box);
+    const grate = steamVents().find((v) => v.id === "back-grate");
+    if (grate === undefined) throw new Error("no grate steam");
+    // A patch of the grate's steam, a metre up, is the same frame after frame.
+    const steam = screenPointFromSide(
+      "back",
+      { ...grate.position, y: grate.position.y + 1 },
+      box,
+    );
+    const cdp = await page.context().newCDPSession(page);
+    const clip = {
+      x: Math.round(steam.x - 16),
+      y: Math.round(steam.y - 16),
+      width: 32,
+      height: 32,
+      scale: 1,
+    };
+    const shoot = async (): Promise<string> =>
+      (await cdp.send("Page.captureScreenshot", { format: "png", clip })).data;
+    await page.waitForTimeout(300);
+    const first = await shoot();
+    for (let i = 0; i < 4; i += 1) {
+      await page.waitForTimeout(200);
+      expect(await shoot()).toEqual(first);
+    }
+    // The lit door, the steam and the fire escape over them.
+    const width = 760;
+    const height = 640;
+    await page.screenshot({
+      path: "test-results/ducts-back.png",
+      clip: {
+        x: Math.max(box.x, Math.round(lamp.x - width / 2)),
+        y: Math.max(box.y, Math.round(lamp.y - height * 0.6)),
+        width,
+        height,
+      },
+    });
+    await page.screenshot({ path: "test-results/ducts-back-full.png" });
   });
 
   test("dragging with the mouse takes the camera off the side views", async ({

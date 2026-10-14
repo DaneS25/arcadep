@@ -24,9 +24,11 @@ import {
   type SignId,
   type WindowCellId,
 } from "@/logic/detailLayout";
+import { withDucts } from "@/logic/ductLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
+  LAMP_LOOK,
   SIGNS_LOOK,
   surfaceMaterialParams,
   type SurfaceMaterialParams,
@@ -139,6 +141,9 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
       neon,
     );
   drawPuddle(ctx, rects.puddle);
+  // The back door lamp's bulb (task 23): one even, cold violet-white.
+  ctx.fillStyle = LAMP_LOOK.bulb;
+  ctx.fillRect(rects.lamp.x, rects.lamp.y, rects.lamp.width, rects.lamp.height);
   for (const [id, rect] of Object.entries(WINDOW_CELLS))
     drawWindowCell(ctx, id as WindowCellId, rect);
   // The sign plates' hover glow: red at the plates' old highlight strength once the
@@ -172,8 +177,12 @@ export function createDetails(
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  // Windows and doors join before the sign plates, which must stay last among the boxes.
-  const layout = withSignPlates(withWindows(detailLayout()), signPlates);
+  // Ducts (task 23), windows and doors join before the sign plates, which must stay last
+  // among the boxes.
+  const layout = withSignPlates(
+    withWindows(withDucts(detailLayout())),
+    signPlates,
+  );
   const paneStarts = glassVertexStarts(layout);
   const flickering = flickeringPanes(layout.glass);
   const plates = signPlateVertices(layout);
