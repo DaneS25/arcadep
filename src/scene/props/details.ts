@@ -25,10 +25,12 @@ import {
   type WindowCellId,
 } from "@/logic/detailLayout";
 import { withDucts } from "@/logic/ductLayout";
+import { withGenerator } from "@/logic/generatorLayout";
 import { withSidewalk } from "@/logic/sidewalkLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
+  GENERATOR_LOOK,
   LAMP_LOOK,
   SIGNS_LOOK,
   surfaceMaterialParams,
@@ -127,6 +129,59 @@ function drawPuddle(ctx: CanvasRenderingContext2D, rect: PixelRect): void {
   ctx.globalCompositeOperation = "source-over";
 }
 
+/**
+ * The generator's warning stencil (task 28): faded red hazard stripes round a pale warning
+ * triangle with a lightning bolt, on a near-black plate. No words, so no content strings.
+ */
+function drawStencil(ctx: CanvasRenderingContext2D, rect: PixelRect): void {
+  const L = GENERATOR_LOOK;
+  const { x, y, width: w, height: h } = rect;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = L.stencilBase;
+  ctx.fillRect(x, y, w, h);
+  // Diagonal stripes, then the plate's middle cut back to black, leaving a striped border.
+  ctx.fillStyle = L.stencilRed;
+  const step = w / 6;
+  for (let i = -h; i < w + h; i += 2 * step) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y + h);
+    ctx.lineTo(x + i + step, y + h);
+    ctx.lineTo(x + i + step + h, y);
+    ctx.lineTo(x + i + h, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const border = w * 0.12;
+  ctx.fillStyle = L.stencilBase;
+  ctx.fillRect(x + border, y + border, w - 2 * border, h - 2 * border);
+  // The warning triangle.
+  const cx = x + w / 2;
+  ctx.strokeStyle = L.stencilPale;
+  ctx.lineWidth = w * 0.06;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx, y + h * 0.22);
+  ctx.lineTo(x + w * 0.78, y + h * 0.76);
+  ctx.lineTo(x + w * 0.22, y + h * 0.76);
+  ctx.closePath();
+  ctx.stroke();
+  // The bolt inside it.
+  ctx.fillStyle = L.stencilRed;
+  ctx.beginPath();
+  ctx.moveTo(cx + w * 0.04, y + h * 0.36);
+  ctx.lineTo(cx - w * 0.07, y + h * 0.54);
+  ctx.lineTo(cx, y + h * 0.54);
+  ctx.lineTo(cx - w * 0.04, y + h * 0.7);
+  ctx.lineTo(cx + w * 0.08, y + h * 0.5);
+  ctx.lineTo(cx + w * 0.01, y + h * 0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
   const { rects } = DETAIL_TEXTURE;
   // Black everywhere, so nothing but the signs and the puddles glows.
@@ -145,6 +200,10 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
   // The back door lamp's bulb (task 23): one even, cold violet-white.
   ctx.fillStyle = LAMP_LOOK.bulb;
   ctx.fillRect(rects.lamp.x, rects.lamp.y, rects.lamp.width, rects.lamp.height);
+  // The generator (task 28): its slits' even cold glow, and its warning stencil.
+  ctx.fillStyle = GENERATOR_LOOK.glow;
+  ctx.fillRect(rects.glow.x, rects.glow.y, rects.glow.width, rects.glow.height);
+  drawStencil(ctx, rects.stencil);
   for (const [id, rect] of Object.entries(WINDOW_CELLS))
     drawWindowCell(ctx, id as WindowCellId, rect);
   // The sign plates' hover glow: red at the plates' old highlight strength once the
@@ -178,10 +237,11 @@ export function createDetails(
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  // Ducts (task 23), the pavement's drains, bags and litter (task 24), windows and doors
-  // join before the sign plates, which must stay last among the boxes.
+  // Ducts (task 23), the generator (task 28), the pavement's drains, bags and litter
+  // (task 24), windows and doors join before the sign plates, which must stay last among
+  // the boxes.
   const layout = withSignPlates(
-    withWindows(withSidewalk(withDucts(detailLayout()))),
+    withWindows(withSidewalk(withGenerator(withDucts(detailLayout())))),
     signPlates,
   );
   const paneStarts = glassVertexStarts(layout);

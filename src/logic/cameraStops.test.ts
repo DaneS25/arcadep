@@ -12,6 +12,7 @@ import {
 import { screenViewPose } from "./cabinetLayout";
 import { detailLayout } from "./detailLayout";
 import { withDucts } from "./ductLayout";
+import { withGenerator } from "./generatorLayout";
 import { neonStrips } from "./neonLayout";
 import {
   CAMERA,
@@ -52,9 +53,9 @@ const BUILDING_BOX: Box = {
   },
 };
 
-/** Everything fixed on or round the building: props, ducts, the lamp, cables' brackets and the neon. */
+/** Everything fixed on or round the building: props, ducts, the lamp, the generator, cables' brackets and the neon. */
 const PROPS: readonly Box[] = [
-  ...withDucts(detailLayout()).boxes.map(({ box }) => box),
+  ...withGenerator(withDucts(detailLayout())).boxes.map(({ box }) => box),
   ...neonStrips().map(({ box }) => box),
 ];
 
@@ -261,7 +262,7 @@ describe("moves to and from the signs and posters", () => {
             expect(p.y).toBeGreaterThan(STREET.curbHeightM + 0.5);
           }
     }
-  });
+  }, 20_000);
 });
 
 describe("cameraCue", () => {

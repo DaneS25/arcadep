@@ -3,6 +3,7 @@ import { boxesGeometryData } from "./boxGeometry";
 import { cabinetLayout } from "./cabinetLayout";
 import { DETAILS_LOOK } from "./lookConfig";
 import { detailGeometryData, detailLayout } from "./detailLayout";
+import { withGenerator } from "./generatorLayout";
 import { PALETTE } from "./palette";
 import {
   STICKER_COLORS,
@@ -41,13 +42,30 @@ describe("worn edges", () => {
     expect(wear.stickers).toHaveLength(count);
     layout.boxes.forEach((part, i) => {
       const flag = wear.stickers[i * 24];
-      expect(flag).toBe(STICKER_KINDS.includes(part.kind) ? 1 : 0);
+      expect(flag).toBe(
+        !part.noStickers && STICKER_KINDS.includes(part.kind) ? 1 : 0,
+      );
     });
     // Beams and quads after the boxes never wear or get stickers.
     for (let v = layout.boxes.length * 24; v < count; v += 1)
       expect(wear.stickers[v]).toBe(0);
     expect(STICKER_KINDS).not.toContain("frame");
     expect(STICKER_KINDS).not.toContain("puddle");
+  });
+
+  it("keep stickers off the generator, which still takes the grime", () => {
+    const layout = withGenerator(detailLayout());
+    const generatorStart = detailLayout().boxes.length;
+    const count =
+      detailGeometryData(layout, 1, DETAILS_LOOK.shades).positions.length / 3;
+    const wear = detailWearAttributes(layout, count);
+    const generator = layout.boxes.slice(generatorStart);
+    expect(generator.some((part) => STICKER_KINDS.includes(part.kind))).toBe(
+      true,
+    );
+    generator.forEach((_, i) => {
+      expect(wear.stickers[(generatorStart + i) * 24]).toBe(0);
+    });
   });
 
   it("leave thin parts (frames, rods) unworn across their width", () => {

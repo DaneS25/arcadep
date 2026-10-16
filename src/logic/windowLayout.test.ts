@@ -57,6 +57,7 @@ const SHADES: DetailShades = {
   board: 0.4,
   door: 0.3,
   lamp: 0,
+  glow: 0,
 };
 
 const dot = (

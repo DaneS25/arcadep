@@ -221,6 +221,8 @@ export const DETAILS_LOOK = {
     door: 0.26,
     // The back door lamp's bulb (task 23): black under its glow, like the sign faces.
     lamp: 0,
+    // The generator's slits (task 28): black under their cold glow.
+    glow: 0,
   },
   emissiveIntensity: 1.2,
   /**
@@ -310,6 +312,18 @@ export const LAMP_LOOK = {
   decay: 2,
   /** The bulb's glow in the details atlas (times the details' emissive intensity). */
   bulb: "#d6d0ff",
+} as const;
+
+/**
+ * The generator (task 28), drawn into the details atlas: a dim cold cyan in its slits and a
+ * faded stencil (dim red hazard stripes, a pale warning triangle and bolt) on black. All of
+ * it far under the bloom threshold, so it hums quietly under the skill signs' neon.
+ */
+export const GENERATOR_LOOK = {
+  glow: "#2b8aa3",
+  stencilRed: "#5c1520",
+  stencilPale: "#5a5a66",
+  stencilBase: "#08080b",
 } as const;
 
 export const TONE_MAPPING = {
