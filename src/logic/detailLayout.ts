@@ -450,7 +450,7 @@ function wallSign(
 }
 
 /**
- * The two shop signs (task 21): COFFEE on the front and ARCADE on the right, each hung on
+ * The two shop signs (task 21): ARCADE on the front and COFFEE on the right (swapped in task 31), each hung on
  * the floor above the shop, partly over the lower half of two of that floor's windows. A
  * sign stands off the wall on two brackets, far enough out to clear the window frames and
  * sills behind it, and hangs from them on two rods.
@@ -467,17 +467,19 @@ export type HangingSign = {
 };
 
 export const HANGING_SIGNS: Readonly<Record<HangingSignId, HangingSign>> = {
+  // Swapped in task 31 (user): ARCADE over the arcade cabinet on the front, COFFEE on the
+  // right. Each sign keeps its own text and colours; the slots, brackets and sizes stay.
   cafe: {
-    side: "front",
-    alongM: 1.25,
-    bottomY: 5.1,
-    bracketAlongM: [0.85, 1.65],
-  },
-  arcade: {
     side: "right",
     alongM: 1.8,
     bottomY: 5.1,
     bracketAlongM: [1.55, 2.05],
+  },
+  arcade: {
+    side: "front",
+    alongM: 1.25,
+    bottomY: 5.1,
+    bracketAlongM: [0.85, 1.65],
   },
 };
 

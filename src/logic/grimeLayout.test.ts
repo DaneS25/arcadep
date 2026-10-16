@@ -252,7 +252,7 @@ describe("the wall marks", () => {
         );
       }
     }
-    // The front's two AC units and its vent, and the COFFEE sign.
+    // The front's two AC units and its vent, and the ARCADE sign.
     expect(rustSources("front").length).toBeGreaterThanOrEqual(3);
   });
 
