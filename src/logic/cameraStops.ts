@@ -1,8 +1,8 @@
 /**
  * Where the camera can be sent: a side's view of the building, or a close-up of a side's
- * prop (the cabinet's screen, task 10; the neon signs and the posters, task 14). Also
- * decides, from a change of app mode, where the camera should go. The right side has no
- * close-up: the terminal's jack-in is the effect there.
+ * prop (the cabinet's screen, task 10; the neon signs and the posters, task 14; the door
+ * terminal's screen, task 32). Also decides, from a change of app mode, where the camera
+ * should go.
  */
 
 import type { AppMode } from "./appState";
@@ -11,6 +11,7 @@ import { CABINET_SIDE, screenViewPose } from "./cabinetLayout";
 import { sidePose, type CameraPose } from "./cameraOrbit";
 import { GRAFFITI_SIDE, postersViewPose } from "./graffitiLayout";
 import { SIGNS_SIDE, signsViewPose } from "./skillSignsLayout";
+import { TERMINAL_SIDE, terminalViewPose } from "./terminalLayout";
 
 export type CameraStop =
   | { readonly kind: "side"; readonly side: Side }
@@ -21,9 +22,10 @@ const CLOSE_UP_POSES: ReadonlyMap<Side, () => CameraPose> = new Map([
   [CABINET_SIDE, () => screenViewPose()],
   [SIGNS_SIDE, () => signsViewPose()],
   [GRAFFITI_SIDE, () => postersViewPose()],
+  [TERMINAL_SIDE, () => terminalViewPose()],
 ]);
 
-/** Sides whose open panel brings the camera in close: the cabinet, the signs and the posters. */
+/** Sides whose open panel brings the camera in close: every side (the cabinet, the signs, the posters and the terminal). */
 export const CLOSE_UP_SIDES: readonly Side[] = [...CLOSE_UP_POSES.keys()];
 
 /** The camera pose for a stop; a close-up of a side without one is that side's view. */

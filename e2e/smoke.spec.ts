@@ -5,7 +5,7 @@ import { projects } from "../src/content/projects";
 import { skills } from "../src/content/skills";
 import type { Side, Vec3 } from "../src/logic/buildingLayout";
 import { pointOnSide, wallOpenings } from "../src/logic/buildingLayout";
-import { posePosition, sidePose } from "../src/logic/cameraOrbit";
+import { CAMERA, posePosition, sidePose } from "../src/logic/cameraOrbit";
 import { backLampPosition, steamVents } from "../src/logic/ductLayout";
 import { generatorPlugs } from "../src/logic/generatorLayout";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
@@ -1016,6 +1016,9 @@ test.describe("right: door terminal", () => {
   test("jacks in by keyboard, runs typed and clicked commands, and exit returns to the street", async ({
     page,
   }) => {
+    // Since the camera moves in to the terminal (task 32), the wall fills the view behind
+    // the panel and headless (software) WebGL draws it slower: about 29 s, as the cabinet's.
+    test.slow();
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     await expect(page.locator("#loading-screen")).toBeHidden();
@@ -1032,6 +1035,8 @@ test.describe("right: door terminal", () => {
     await expect(panel).toHaveAttribute("data-side", "right");
     const input = panel.getByRole("textbox", { name: "Command" });
     await expect(input).toBeFocused();
+    // The camera cuts in to the terminal under reduced motion (task 32).
+    await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
     // Centred, not full screen (task 18): the full panel height, so the log has room.
     const box = await panel.boundingBox();
     expect(box?.width).toBeLessThan(1280);
@@ -1062,25 +1067,34 @@ test.describe("right: door terminal", () => {
     await expect(panel).toBeHidden();
     await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toHaveAttribute("data-app-side", "right");
+    await expect(canvas).toHaveAttribute("data-camera-view", "side");
     await expect(canvas).toBeFocused();
   });
 });
 
-test("the terminal jacks in with a fade when motion is allowed", async ({
+test("the camera moves in to the terminal and it jacks in as the camera lands, when motion is allowed", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("#loading-screen")).toBeHidden();
+  const canvas = page.locator("canvas.scene");
   for (let i = 0; i < 2; i += 1) await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   const panel = page.getByRole("dialog");
   await expect(panel).toHaveAttribute("data-side", "right");
-  const animation = await panel.evaluate(
-    (element) => getComputedStyle(element).animationName,
-  );
-  expect(animation).toBe("jack-in");
+  // The jack-in waits for the camera's move (task 32), so the move is seen.
+  const { name, delay } = await panel.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { name: style.animationName, delay: style.animationDelay };
+  });
+  expect(name).toBe("jack-in");
+  expect(delay).toBe(`${String(CAMERA.tweenMs / 1000)}s`);
+  await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+  await expect(canvas).toHaveAttribute("data-camera-side", "right");
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
+  await expect(canvas).toHaveAttribute("data-camera-view", "side");
+  await expect(canvas).toHaveAttribute("data-camera-side", "right");
 });
 
 test("the camera tweens in to the cabinet's screen with motion allowed", async ({

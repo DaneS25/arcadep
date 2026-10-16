@@ -117,10 +117,16 @@
   color: var(--color-base, #07070b);
 }
 
-/* Only when motion is allowed; under reduced motion it opens like every other panel. */
+/*
+ * Only when motion is allowed; under reduced motion it opens like every other panel (and the
+ * camera cuts). The jack-in waits for the camera's move in to the terminal (task 32,
+ * `--camera-move-ms`, set from `CAMERA.tweenMs`), so the move is seen through the backdrop
+ * and the panel opens as the camera lands; until then it stays hidden (`backwards`).
+ */
 @media (prefers-reduced-motion: no-preference) {
   .panel[data-side="right"][open] {
-    animation: jack-in var(--jack-in-ms) ease-out;
+    animation: jack-in var(--jack-in-ms) ease-out var(--camera-move-ms, 0ms)
+      backwards;
   }
 }
 
