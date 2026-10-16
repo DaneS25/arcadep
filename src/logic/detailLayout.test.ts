@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BUILDING,
   STREET,
-  bandBoxes,
-  buildingHeightM,
   interactionSpots,
-  wallOpenings,
   sideNormal,
   sidewalkRect,
   type Box,
@@ -18,9 +15,6 @@ import { skillSignsLayout } from "./skillSignsLayout";
 import {
   DETAIL_SIZES,
   DETAIL_TEXTURE,
-  BACK_CABLES,
-  CABLE_HANG,
-  backCableEnds,
   detailGeometryData,
   detailLayout,
   detailUv,
@@ -46,6 +40,7 @@ const SHADES: DetailShades = {
   door: 0.3,
   lamp: 0,
   glow: 0,
+  wire: 0.2,
 };
 
 function corners(box: Box): Vec3[] {
@@ -131,50 +126,6 @@ describe("detailLayout", () => {
     expect(new Set(layout.faces.map((f) => f.sign))).toEqual(
       new Set(["rooftop", "cafe", "arcade"]),
     );
-  });
-
-  it("hangs the alley's cables on the back wall, each end held by a bracket or hook", () => {
-    const halfW = BUILDING.widthM / 2;
-    const wallZ = -BUILDING.depthM / 2;
-    const ends = backCableEnds();
-    expect(ends).toHaveLength(BACK_CABLES.length);
-    for (const { from, to } of ends)
-      for (const end of [from, to]) {
-        // On the back wall (or the parapet's face, flush with it), never out over the pavement.
-        expect(end.z).toBeCloseTo(wallZ - CABLE_HANG.outM);
-        expect(Math.abs(end.x)).toBeLessThan(halfW);
-        expect(end.y).toBeGreaterThan(0);
-        expect(end.y).toBeLessThan(buildingHeightM());
-        const held = layout.boxes.some(
-          ({ kind, box }) =>
-            kind === "metal" &&
-            box.size.x <= CABLE_HANG.bracket.across + EPS &&
-            Math.abs(end.x - box.centre.x) <= box.size.x / 2 + EPS &&
-            Math.abs(end.y - box.centre.y) <= box.size.y / 2 + EPS &&
-            Math.abs(end.z - box.centre.z) <= box.size.z / 2 + EPS,
-        );
-        expect(held).toBe(true);
-      }
-  });
-
-  it("runs the alley's cables clear of the back windows, doors and the floor band", () => {
-    const openings = wallOpenings().filter((o) => o.side === "back");
-    const bandYs = bandBoxes().map((b) => b.centre.y);
-    for (const { from, to, sagM } of backCableEnds())
-      for (const p of sagPoints(from, to, sagM, 40)) {
-        // Back wall: along runs towards -x.
-        const along = -p.x;
-        for (const o of openings) {
-          const inX = Math.abs(along - o.alongM) < o.widthM / 2 + 0.1;
-          const inY =
-            p.y > o.bottomY - 0.1 && p.y < o.bottomY + o.heightM + 0.1;
-          expect(inX && inY).toBe(false);
-        }
-        for (const y of bandYs)
-          expect(Math.abs(p.y - y)).toBeGreaterThan(
-            BUILDING.bandHeightM / 2 + 0.1,
-          );
-      }
   });
 
   it("stands nothing out past the kerb: every prop, cable and tube stays over the pavement", () => {

@@ -14,6 +14,7 @@ import { detailLayout } from "./detailLayout";
 import { withDucts } from "./ductLayout";
 import { withGenerator } from "./generatorLayout";
 import { neonStrips } from "./neonLayout";
+import { wireHardware, wireStrands } from "./wireLayout";
 import {
   CAMERA,
   planPoseTween,
@@ -53,11 +54,45 @@ const BUILDING_BOX: Box = {
   },
 };
 
-/** Everything fixed on or round the building: props, ducts, the lamp, the generator, cables' brackets and the neon. */
+/** Everything fixed on or round the building: props, ducts, the lamp, the generator and the neon. */
 const PROPS: readonly Box[] = [
   ...withGenerator(withDucts(detailLayout())).boxes.map(({ box }) => box),
   ...neonStrips().map(({ box }) => box),
 ];
+
+/** One box round every overhead wire, bracket and mast (task 29): the camera keeps out of all of it. */
+const WIRES_BOX: Box = (() => {
+  const points = [
+    ...wireStrands().flatMap((s) => s.points),
+    ...wireHardware().flatMap(({ box }) => [
+      {
+        x: box.centre.x - box.size.x / 2,
+        y: box.centre.y - box.size.y / 2,
+        z: box.centre.z - box.size.z / 2,
+      },
+      {
+        x: box.centre.x + box.size.x / 2,
+        y: box.centre.y + box.size.y / 2,
+        z: box.centre.z + box.size.z / 2,
+      },
+    ]),
+  ];
+  const lo = { x: Infinity, y: Infinity, z: Infinity };
+  const hi = { x: -Infinity, y: -Infinity, z: -Infinity };
+  for (const p of points)
+    for (const axis of ["x", "y", "z"] as const) {
+      lo[axis] = Math.min(lo[axis], p[axis]);
+      hi[axis] = Math.max(hi[axis], p[axis]);
+    }
+  return {
+    centre: {
+      x: (lo.x + hi.x) / 2,
+      y: (lo.y + hi.y) / 2,
+      z: (lo.z + hi.z) / 2,
+    },
+    size: { x: hi.x - lo.x, y: hi.y - lo.y, z: hi.z - lo.z },
+  };
+})();
 
 const DEG = Math.PI / 180;
 /** Where a move can start: each side's view, plus free-look orbits at the zoom limits. */
@@ -258,6 +293,7 @@ describe("moves to and from the signs and posters", () => {
         ] as const)
           for (const p of path(from, to)) {
             expect(inside(BUILDING_BOX, p, 0.3)).toBe(false);
+            expect(inside(WIRES_BOX, p, 0.15)).toBe(false);
             for (const box of PROPS) expect(inside(box, p, 0.15)).toBe(false);
             expect(p.y).toBeGreaterThan(STREET.curbHeightM + 0.5);
           }
