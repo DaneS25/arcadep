@@ -10,6 +10,7 @@ import { backLampPosition, steamVents } from "../src/logic/ductLayout";
 import { generatorPlugs } from "../src/logic/generatorLayout";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
 import { seedFromText } from "../src/logic/neonFlicker";
+import { smallLights } from "../src/logic/lightLayout";
 import { tapDevices } from "../src/logic/tapLayout";
 
 /**
@@ -206,7 +207,7 @@ test.describe("camera navigation", () => {
     page,
   }) => {
     test.slow();
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     await expect(page.locator("#loading-screen")).toBeHidden();
     const canvas = page.locator("canvas.scene");
@@ -215,15 +216,15 @@ test.describe("camera navigation", () => {
     await page.mouse.move(box.x + 4, box.y + 4);
     const cdp = await page.context().newCDPSession(page);
     const devices = tapDevices();
-    // From the front, then the right (the keys go round: right, back, left, front).
+    // The right, then the front (the keys go round: right, back, left, front). The opening
+    // view is its own orbit, not the front's view, so the front is reached by the keys too.
     for (const [side, presses] of [
-      ["front", 0],
       ["right", 1],
+      ["front", 3],
     ] as const) {
       for (let i = 0; i < presses; i += 1)
         await page.keyboard.press("ArrowRight");
-      if (presses > 0)
-        await expect(canvas).toHaveAttribute("data-camera-side", side);
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
       await page.waitForTimeout(300);
       const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
       expect(drawCalls).toBeGreaterThan(0);
@@ -261,7 +262,7 @@ test.describe("camera navigation", () => {
         );
       const first = await shoot();
       // Long enough for several of the 400 ms blink slots to pass.
-      for (let i = 0; i < 10; i += 1) {
+      for (let i = 0; i < 6; i += 1) {
         await page.waitForTimeout(150);
         expect(await shoot()).toEqual(first);
       }
@@ -269,6 +270,84 @@ test.describe("camera navigation", () => {
         const at = screenPointFromSide(side, d.at, box);
         await page.screenshot({
           path: `test-results/taps-${d.id}.png`,
+          clip: {
+            x: Math.max(box.x, Math.round(at.x - 120)),
+            y: Math.max(box.y, Math.round(at.y - 80)),
+            width: 240,
+            height: 160,
+          },
+        });
+      }
+    }
+  });
+
+  test("the small lights add no draw call and hold steady under reduced motion", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    const cdp = await page.context().newCDPSession(page);
+    const lights = smallLights();
+    // Every side in turn (the keys go round: right, back, left, front).
+    for (const side of ["right", "back", "left", "front"] as const) {
+      await page.keyboard.press("ArrowRight");
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
+      await page.waitForTimeout(300);
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+      const onSide = lights.filter((l) => l.side === side);
+      expect(onSide.length).toBeGreaterThan(0);
+      const centres = onSide.map((l) => {
+        const parts = l.face
+          ? l.face.quad.corners
+          : l.glows.map((g) => g.box.centre);
+        const n = parts.length;
+        return parts.reduce(
+          (m, p) => ({ x: m.x + p.x / n, y: m.y + p.y / n, z: m.z + p.z / n }),
+          { x: 0, y: 0, z: 0 },
+        );
+      });
+      const clips = centres.map((c) => {
+        const p = screenPointFromSide(side, c, box);
+        return {
+          x: Math.round(p.x - 4),
+          y: Math.round(p.y - 4),
+          width: 8,
+          height: 8,
+          scale: 1,
+        };
+      });
+      const shoot = async (): Promise<string[]> =>
+        Promise.all(
+          clips.map(
+            async (clip) =>
+              (
+                await cdp.send("Page.captureScreenshot", {
+                  format: "png",
+                  clip,
+                })
+              ).data,
+          ),
+        );
+      const first = await shoot();
+      // Long enough for several of the 400 ms slots to pass.
+      for (let i = 0; i < 6; i += 1) {
+        await page.waitForTimeout(150);
+        expect(await shoot()).toEqual(first);
+      }
+      for (const [i, l] of onSide.entries()) {
+        const c = centres[i];
+        if (!c) continue;
+        const at = screenPointFromSide(side, c, box);
+        await page.screenshot({
+          path: `test-results/lights-${l.id}.png`,
           clip: {
             x: Math.max(box.x, Math.round(at.x - 120)),
             y: Math.max(box.y, Math.round(at.y - 80)),

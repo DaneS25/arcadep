@@ -26,7 +26,7 @@ import {
   type WindowCellId,
   type WindowGlass,
 } from "./detailLayout";
-import { dimmedSign } from "./neonFlicker";
+import { flashing } from "./neonFlicker";
 
 /** Depths and sizes of the door and fire-escape parts, in metres. */
 export const DOOR_PARTS = {
@@ -366,16 +366,16 @@ export const WINDOW_FLICKER_SEED = 0x51c4e3a1;
 
 /**
  * Which of the flickering panes (an index into those flagged `flicker`, in order) is cut out
- * `timeMs` into the pattern, or undefined when all are lit. The skill signs' slot scheme
- * (`neonFlicker`), so the group never flashes more than 3 times a second; steady under
- * reduced motion.
+ * `timeMs` into the pattern, or undefined when all are lit. In the scene's shared flash
+ * budget (`neonFlicker`), so nothing flashes more than 3 times a second together; steady
+ * under reduced motion.
  */
 export function dimmedWindow(
   timeMs: number,
   count: number,
   reducedMotion: boolean,
 ): number | undefined {
-  return dimmedSign(timeMs, WINDOW_FLICKER_SEED, count, reducedMotion);
+  return flashing(timeMs, "windows", WINDOW_FLICKER_SEED, count, reducedMotion);
 }
 
 /** The panes that flicker, as indexes into `glass`. */

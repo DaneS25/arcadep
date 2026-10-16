@@ -44,19 +44,24 @@ export type DetailKind =
   /** The overhead wires (task 29): a shade lighter than the old cables, so they read at night. */
   | "wire"
   /** A wire tap's status LED (task 33): glows with its colour's atlas patch. */
-  | "led";
+  | "led"
+  /** A small light's bulb or tube (task 34): glows with its colour's atlas patch. */
+  | "light";
 
-/** The palette colours a tap's LED glows in (task 33). */
-export type LedColor = "red" | "cyan" | "purple";
+/**
+ * What a glowing box (an LED or a small light) glows with: the palette's red, cyan or
+ * purple (the taps' LEDs, task 33), or a small light's cold bulb or cold tube (task 34).
+ */
+export type GlowColor = "red" | "cyan" | "purple" | "bulb" | "tube";
 
 export type DetailBox = {
   readonly kind: DetailKind;
   readonly box: Box;
   /** Keeps stickers off a box whose kind would get them (the generator, task 28 review). */
   readonly noStickers?: boolean;
-  /** An LED's colour (`led` kind only). */
-  readonly led?: LedColor;
-  /** An LED that blinks (task 33), so the scene swaps its atlas patch now and then. */
+  /** What an LED or a small light glows with (`led` and `light` kinds only). */
+  readonly glow?: GlowColor;
+  /** An LED or light that flickers (tasks 33 and 34): the scene swaps its atlas patch. */
   readonly blink?: true;
 };
 
@@ -70,8 +75,8 @@ export type DetailBeam = {
 
 export type SignId = "rooftop" | "cafe" | "arcade";
 
-/** A quad of the atlas that isn't a sign: the generator's warning stencils (task 28). */
-export type PatchFaceId = "stencil";
+/** A quad of the atlas that isn't a sign: the generator's warning stencils (task 28), the back's exit sign (task 34). */
+export type PatchFaceId = "stencil" | "exit";
 
 /** A sign's glowing face (or a stencil), mapped to its own rectangle of the atlas. */
 export type SignFace = {
@@ -123,6 +128,10 @@ export const DETAIL_TEXTURE = {
     ledRed: { x: 384, y: 704, width: 64, height: 64 },
     ledCyan: { x: 448, y: 704, width: 64, height: 64 },
     ledPurple: { x: 512, y: 704, width: 64, height: 64 },
+    /** The small lights (task 34): a cold bulb, a cold tube, and the exit sign's face. */
+    lightBulb: { x: 576, y: 704, width: 64, height: 64 },
+    lightTube: { x: 640, y: 704, width: 64, height: 64 },
+    exit: { x: 384, y: 768, width: 256, height: 96 },
   },
 } as const satisfies {
   widthPx: number;
@@ -138,7 +147,9 @@ export const DETAIL_TEXTURE = {
     | "wireSheen"
     | "ledRed"
     | "ledCyan"
-    | "ledPurple",
+    | "ledPurple"
+    | "lightBulb"
+    | "lightTube",
     PixelRect
   >;
 };
@@ -795,6 +806,29 @@ export function withSignPlates(
   };
 }
 
+/** The atlas UV each glow colour samples (an LED's or a small light's lit patch). */
+export function glowUvs(): Readonly<Record<GlowColor, [number, number]>> {
+  const r = DETAIL_TEXTURE.rects;
+  return {
+    red: centreUv(r.ledRed),
+    cyan: centreUv(r.ledCyan),
+    purple: centreUv(r.ledPurple),
+    bulb: centreUv(r.lightBulb),
+    tube: centreUv(r.lightTube),
+  };
+}
+
+/** Vertices per beam in `detailGeometryData` (4 sides of 4 corners), after the boxes. */
+export const VERTICES_PER_BEAM = 16;
+
+/** The first vertex of each face in `detailGeometryData`'s output (four each), after the boxes and beams. */
+export function faceVertexStarts(layout: DetailLayout): number[] {
+  const first =
+    layout.boxes.length * VERTICES_PER_BOX +
+    layout.beams.length * VERTICES_PER_BEAM;
+  return layout.faces.map((_, i) => first + i * 4);
+}
+
 /** Vertices per box in `boxesGeometryData` (6 faces of 4 corners); boxes come first. */
 export const VERTICES_PER_BOX = 24;
 
@@ -868,11 +902,7 @@ export function detailGeometryData(
   const lamp = centreUv(DETAIL_TEXTURE.rects.lamp);
   const glow = centreUv(DETAIL_TEXTURE.rects.glow);
   const wireSheen = centreUv(DETAIL_TEXTURE.rects.wireSheen);
-  const leds = {
-    red: centreUv(DETAIL_TEXTURE.rects.ledRed),
-    cyan: centreUv(DETAIL_TEXTURE.rects.ledCyan),
-    purple: centreUv(DETAIL_TEXTURE.rects.ledPurple),
-  };
+  const glows = glowUvs();
   const puddle = detailUv(DETAIL_TEXTURE.rects.puddle);
   const puddleCorners: [number, number][] = [
     [puddle.uMin, puddle.vMin],
@@ -896,8 +926,8 @@ export function detailGeometryData(
               ? lamp
               : part.kind === "glow"
                 ? glow
-                : part.kind === "led"
-                  ? leds[part.led ?? "red"]
+                : part.kind === "led" || part.kind === "light"
+                  ? glows[part.glow ?? "red"]
                   : dark;
         atlasUvs.push(...(uv ?? dark));
         shade(part.kind);

@@ -228,6 +228,8 @@ export const DETAILS_LOOK = {
     wire: 1.4,
     // The wire taps' LEDs (task 33): black under their glow, like the lamp.
     led: 0,
+    // The small lights' bulbs and tubes (task 34): black under their glow.
+    light: 0,
   },
   emissiveIntensity: 1.2,
   /**
@@ -347,6 +349,17 @@ export const LED_LOOK = {
   red: PALETTE.accent,
   cyan: PALETTE.cyan,
   purple: PALETTE.purple,
+} as const;
+
+/**
+ * The small flickering lights (task 34): a cold violet-white bulb, a cold blue-white tube
+ * and the exit sign's red lettering, all dim (the neon fragment uses the LEDs' purple), so
+ * they never bloom and the main signs lead. No yellow or amber.
+ */
+export const LIGHTS_LOOK = {
+  bulb: "#6e68a0",
+  tube: "#5a7c92",
+  exit: "#c42433",
 } as const;
 
 export const TONE_MAPPING = {

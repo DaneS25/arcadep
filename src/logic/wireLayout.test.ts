@@ -37,6 +37,7 @@ import { neonStrips } from "./neonLayout";
 import { withSidewalk } from "./sidewalkLayout";
 import { skillSignsLayout } from "./skillSignsLayout";
 import { terminalLayout } from "./terminalLayout";
+import { smallLights } from "./lightLayout";
 import { tapDevices } from "./tapLayout";
 import { withWindows } from "./windowLayout";
 import {
@@ -64,6 +65,8 @@ const hardware = wireHardware();
 /** The wire taps (task 33): held to the same rules as the wires and their brackets. */
 const taps = tapDevices(strands);
 const TAP_BOXES = taps.flatMap((d) => [...d.boxes, ...d.leds]);
+/** The small lights (task 34): their housings and glowing parts, held to the same rules. */
+const LIGHT_BOXES = smallLights().flatMap((l) => [...l.boxes, ...l.glows]);
 const TAP_STRANDS: WireStrand[] = taps.flatMap((d) =>
   d.beams.map((b, i) => ({
     run: `tap ${d.id} ${String(i)}`,
@@ -522,6 +525,14 @@ describe("wireStrands", () => {
       ...cabinetLayout().parts.map((box) => ({ tag: "cabinet", box })),
       ...terminalLayout().parts.map((box) => ({ tag: "terminal", box })),
     ];
+    // The small lights (task 34) must clear every prop too, and the wires must clear them.
+    const lightHits = LIGHT_BOXES.flatMap(({ box }) =>
+      props
+        .filter((p) => boxesOverlap(box, p.box, -1e-6))
+        .map((p) => `light ${JSON.stringify(box.centre)} x ${p.tag}`),
+    );
+    expect(lightHits).toEqual([]);
+    props.push(...LIGHT_BOXES.map(({ box }) => ({ tag: "light", box })));
     // A feed's first stretch leaves its own port's collar and mouth.
     const ports = generatorLayout().boxes.filter(({ box }) =>
       generatorPlugs().some(
@@ -644,9 +655,9 @@ describe("the wires in every view", () => {
         if (dot(sub(camera, point), normal) <= 0) continue;
         if (segmentHits(camera, point, BUILDING_SOLID)) continue;
         checked += 1;
-        for (const { box } of [...hardware, ...TAP_BOXES])
+        for (const { box } of [...hardware, ...TAP_BOXES, ...LIGHT_BOXES])
           if (segmentHits(camera, point, box, MARGIN))
-            blocked.push(`bracket or tap ${JSON.stringify(box.centre)}`);
+            blocked.push(`bracket, tap or light ${JSON.stringify(box.centre)}`);
         for (const piece of WIRE_PIECES) {
           if (!segmentHits(camera, point, piece.bounds)) continue;
           for (let i = 1; i < piece.points.length; i += 1) {
@@ -706,7 +717,7 @@ describe("the wires in every view", () => {
     for (const piece of pieces([...strands, ...TAP_STRANDS], 0))
       for (const box of keepOut)
         expect(pieceHitsBox(piece, box), piece.run).toBe(false);
-    for (const { box } of [...hardware, ...TAP_BOXES])
+    for (const { box } of [...hardware, ...TAP_BOXES, ...LIGHT_BOXES])
       for (const k of keepOut) expect(boxesOverlap(box, k)).toBe(false);
   });
 });

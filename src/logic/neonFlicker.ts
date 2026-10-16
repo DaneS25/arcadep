@@ -1,13 +1,15 @@
 /**
- * The neon skill signs' gentle flicker (task 11): now and then one sign dips dim for a
- * moment. Pure, seeded and deterministic, so the same seed and time always give the same
- * answer and the flash limit can be proved in tests.
+ * Every flicker in the scene (task 11's skill signs, task 20's windows, task 33's tap LEDs
+ * and task 34's small lights) shares one flash budget. Pure, seeded and deterministic, so
+ * the same time always gives the same answer and the flash limit can be proved in tests.
  *
- * Time is cut into slots. A dip can only start at the start of a slot and is shorter than
- * one, and at most one sign in the whole cluster dips per slot. Any one-second window holds
- * at most `ceil(1000 / slotMs)` slot starts, so the cluster as a whole never flashes more
- * than that many times a second (3 with the 400 ms slot, the WCAG three-flash limit).
- * Under reduced motion nothing dips and every sign stays steady.
+ * Time is cut into slots. Each slot has at most one owner (`slotOwner`): one group of
+ * flickering things, picked by a seeded hash shared by the whole scene, and in it one
+ * member (picked by the group's own seed) dips for the first part of the slot. So at most
+ * one flash starts per slot anywhere, and any one-second window holds at most
+ * `ceil(1000 / slotMs)` slot starts: nothing in any view, from any side or corner, ever
+ * flashes more than 3 times a second together (the WCAG three-flash limit, task 34
+ * review). Under reduced motion nothing dips.
  */
 
 export const FLICKER = {
@@ -15,8 +17,6 @@ export const FLICKER = {
   slotMs: 400,
   /** How long a dip lasts, from the start of its slot. */
   dipMs: 90,
-  /** Chance that a slot has a dip at all. */
-  dipChance: 0.18,
   /** Brightness of a dipped sign; the others stay at 1. */
   dimLevel: 0.3,
   /** Slots before the pattern repeats; keeps the slot index (and the clock) bounded. */
@@ -30,6 +30,30 @@ export function maxFlashesPerSecond(slotMs: number = FLICKER.slotMs): number {
 
 /** The length of one full flicker pattern; the scene keeps its clock inside it. */
 export const FLICKER_CYCLE_MS = FLICKER.slotMs * FLICKER.cycleSlots;
+
+/** The groups that share the flash budget. */
+export type FlashGroup = "signs" | "windows" | "taps" | "lights";
+
+/**
+ * Who may flash in a slot: each group's share of the slots (the rest have no flash), and
+ * how long its dip lasts from the slot's start (always shorter than a slot).
+ */
+export const FLASH_BUDGET = {
+  seed: 0x3c6ef372,
+  share: { signs: 0.13, windows: 0.13, taps: 0.22, lights: 0.2 },
+  dipMs: {
+    signs: FLICKER.dipMs,
+    windows: FLICKER.dipMs,
+    taps: 200,
+    lights: 120,
+  },
+} as const satisfies {
+  seed: number;
+  share: Record<FlashGroup, number>;
+  dipMs: Record<FlashGroup, number>;
+};
+
+const GROUPS: readonly FlashGroup[] = ["signs", "windows", "taps", "lights"];
 
 /** A 32-bit integer hash of a seed and a slot (a small avalanche mix). */
 function hash(seed: number, slot: number): number {
@@ -48,8 +72,38 @@ export function seedFromText(text: string): number {
   return h;
 }
 
+/** The group that owns slot `slot`, if any: the one group allowed to flash in it. */
+export function slotOwner(slot: number): FlashGroup | undefined {
+  let u = hash(FLASH_BUDGET.seed, slot) / 0x100000000;
+  for (const group of GROUPS) {
+    u -= FLASH_BUDGET.share[group];
+    if (u < 0) return group;
+  }
+  return undefined;
+}
+
 /**
- * The index of the sign dipped `timeMs` into the pattern, among `count` signs, or
+ * The index of the member of `group` (among `count`, picked by its own `seed`) dipped
+ * `timeMs` into the pattern, or undefined when none is. Always undefined under reduced
+ * motion.
+ */
+export function flashing(
+  timeMs: number,
+  group: FlashGroup,
+  seed: number,
+  count: number,
+  reducedMotion: boolean,
+): number | undefined {
+  if (reducedMotion || count <= 0 || !Number.isFinite(timeMs) || timeMs < 0)
+    return undefined;
+  const slot = Math.floor(timeMs / FLICKER.slotMs) % FLICKER.cycleSlots;
+  if (timeMs % FLICKER.slotMs >= FLASH_BUDGET.dipMs[group]) return undefined;
+  if (slotOwner(slot) !== group) return undefined;
+  return hash(seed, slot) % Math.trunc(count);
+}
+
+/**
+ * The index of the skill sign dipped `timeMs` into the pattern, among `count` signs, or
  * undefined when every sign is fully lit. Always undefined under reduced motion.
  */
 export function dimmedSign(
@@ -58,15 +112,7 @@ export function dimmedSign(
   count: number,
   reducedMotion: boolean,
 ): number | undefined {
-  if (reducedMotion || count <= 0 || !Number.isFinite(timeMs) || timeMs < 0)
-    return undefined;
-  const slot = Math.floor(timeMs / FLICKER.slotMs) % FLICKER.cycleSlots;
-  const intoSlot = timeMs % FLICKER.slotMs;
-  if (intoSlot >= FLICKER.dipMs) return undefined;
-  const h = hash(seed, slot);
-  // The low 16 bits decide whether the slot dips, the high 16 bits which sign.
-  if ((h & 0xffff) / 0x10000 >= FLICKER.dipChance) return undefined;
-  return (h >>> 16) % Math.trunc(count);
+  return flashing(timeMs, "signs", seed, count, reducedMotion);
 }
 
 /** Brightness of every sign `timeMs` into the pattern: 1, or `dimLevel` for the dipped one. */

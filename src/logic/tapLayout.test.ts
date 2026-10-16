@@ -8,7 +8,12 @@ import {
 import { withDucts } from "./ductLayout";
 import { housingTopY, withGenerator } from "./generatorLayout";
 import { LED_LOOK } from "./lookConfig";
-import { FLICKER, FLICKER_CYCLE_MS, maxFlashesPerSecond } from "./neonFlicker";
+import {
+  FLASH_BUDGET,
+  FLICKER,
+  FLICKER_CYCLE_MS,
+  maxFlashesPerSecond,
+} from "./neonFlicker";
 import { PALETTE } from "./palette";
 import {
   TAPS,
@@ -173,7 +178,7 @@ describe("the taps' LEDs", () => {
       cyan: PALETTE.cyan,
       purple: PALETTE.purple,
     });
-    expect(new Set(leds.map((l) => l.led))).toEqual(
+    expect(new Set(leds.map((l) => l.glow))).toEqual(
       new Set(["red", "cyan", "purple"]),
     );
   });
@@ -206,7 +211,7 @@ describe("darkLed", () => {
       if (first !== undefined) blinks += 1;
       for (let t = start; t < start + FLICKER.slotMs; t += 10) {
         const d = darkLed(t, leds, false);
-        if (t - start < TAPS.offMs) expect(d).toBe(first);
+        if (t - start < FLASH_BUDGET.dipMs.taps) expect(d).toBe(first);
         else expect(d).toBeUndefined();
       }
     }

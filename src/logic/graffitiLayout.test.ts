@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { paintClearRects } from "./lightLayout";
 import {
   BUILDING,
   bandBoxes,
@@ -476,9 +477,10 @@ describe("clearRects", () => {
       return along > a.along && along < b.along && y > a.y && y < b.y;
     });
 
-  it("clears every glass window's frame on the back wall, and only that", () => {
-    const glass = glassRects("back");
-    expect(glass.length).toBeGreaterThan(0);
+  it("clears every glass window's frame on the back wall and the exit sign (task 34), and only those", () => {
+    const glass = [...glassRects("back"), ...paintClearRects("back")];
+    expect(glass.length).toBeGreaterThan(paintClearRects("back").length);
+    expect(paintClearRects("back")).toHaveLength(1);
     expect(layout.clearRects).toHaveLength(glass.length);
     layout.clearRects.forEach((r, i) => {
       const frame = glass[i];
