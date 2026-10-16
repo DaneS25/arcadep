@@ -33,7 +33,6 @@ import {
 } from "./buildingLayout";
 import {
   roofTopY,
-  sagPoints,
   wallBox,
   type DetailBeam,
   type DetailBox,
@@ -64,12 +63,47 @@ export const WIRES = {
   /** Wall brackets: a square arm from the wall out to the wire. */
   bracketM: 0.07,
   /**
-   * A strand's segments are at most this long, and a span has at most this many: few, fat
-   * strands in few segments keep the vertex count low, which headless (software) WebGL feels.
+   * A span is cut into pieces about this long, at least `minSegments` and at most
+   * `maxSegments` of them, so the swags read as smooth curves, not corners (task 30). With
+   * few strands the vertex count stays far under what headless (software) WebGL feels.
    */
-  segmentM: 0.9,
-  maxSegments: 6,
+  segmentM: 0.3,
+  minSegments: 4,
+  maxSegments: 16,
+  /**
+   * How slack the catenary is: the cosh curve's half-width in its own units. Higher hangs
+   * steeper at the anchors and flatter at the bottom, like a slack cable; near 0 it is a
+   * parabola.
+   */
+  catenaryShape: 1.6,
 } as const;
+
+/**
+ * Points along a hanging wire from `from` to `to`, sagging `sagM` at the middle on a
+ * catenary: steepest where it leaves its anchors, flattest at the bottom.
+ */
+export function catenaryPoints(
+  from: Vec3,
+  to: Vec3,
+  sagM: number,
+  segments: number,
+): Vec3[] {
+  const n = Math.max(1, Math.trunc(segments));
+  const a = WIRES.catenaryShape;
+  const depth = Math.cosh(a) - 1;
+  const points: Vec3[] = [];
+  for (let i = 0; i <= n; i += 1) {
+    const t = i / n;
+    // 1 at the middle, 0 at both ends.
+    const drop = (Math.cosh(a) - Math.cosh(a * (2 * t - 1))) / depth;
+    points.push({
+      x: from.x + (to.x - from.x) * t,
+      y: from.y + (to.y - from.y) * t - sagM * drop,
+      z: from.z + (to.z - from.z) * t,
+    });
+  }
+  return points;
+}
 
 export type WireKind = keyof typeof WIRES.thicknessM;
 
@@ -243,18 +277,12 @@ export const WIRE_RUNS: readonly WireRun[] = [
     front(3.8, T1 - 0.05, 0.2),
     front(5.7, T1, 0.2),
   ]),
-  run("front-1-data", "data", 1, 0.12, [
-    front(-5.7, T1, 0.2),
-    front(-2.3, T1, 0.2),
-    front(1.4, T1, 0.2),
-    front(5.7, T1, 0.2),
-  ]),
   run("front-1-loop", "bundle", 3, 0.192, [
     front(-0.2, T1 - 0.03, 0.2),
     front(3.8, T1 - 0.05, 0.2),
   ]),
   // Front, first floor, under the band.
-  run("front-2", "power", 2, 0.24, [
+  run("front-2", "power", 1, 0.24, [
     front(-5.7, T2),
     front(-3.5, T2 - 0.05),
     front(-1.5, T2),
@@ -263,13 +291,12 @@ export const WIRE_RUNS: readonly WireRun[] = [
     front(4.1, T2 - 0.05),
     front(5.7, T2),
   ]),
-  run("front-2-data", "data", 1, 0.384, [
+  run("front-2-data", "data", 1, 0.33, [
     front(-5.7, T2),
     front(-1.5, T2),
     front(2.3, T2),
     front(5.7, T2),
   ]),
-  run("front-2-loop", "data", 1, 0.272, [front(2.3, T2), front(5.7, T2)]),
   // Front, top floor, under the roof, and along the parapet.
   run("front-3", "power", 1, 0.24, [
     front(-5.7, T3),
@@ -279,13 +306,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
     front(2.9, T3),
     front(5.7, T3),
   ]),
-  run("front-3-data", "data", 1, 0.2, [
-    front(-5.7, T3),
-    front(-1.6, T3),
-    front(2.9, T3),
-    front(5.7, T3),
-  ]),
-  run("front-3-loop", "power", 1, 0.32, [front(-5.7, T3), front(-1.6, T3)]),
   run("front-p", "power", 1, 0.128, [
     front(-5.85, TP, 0.4),
     front(-3, TP),
@@ -310,16 +330,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
     front(-1.5, T2),
     front(-3.4, T3 - 0.05),
   ]),
-  run("front-drop-4", "power", 1, 0.064, [
-    front(5.7, T2),
-    front(5.7, T3),
-    front(5.85, TP, 0.4),
-  ]),
-  run("front-drop-5", "data", 1, 0.096, [
-    front(2.9, T3),
-    front(3, TP),
-    front(0, TP + 0.05),
-  ]),
   run("front-cross-1", "power", 1, 0.096, [
     front(-4.1, T1 - 0.05, 0.2),
     front(-1.5, T2),
@@ -329,24 +339,11 @@ export const WIRE_RUNS: readonly WireRun[] = [
     front(3.8, T1 - 0.05, 0.2),
     front(2.3, T2),
   ]),
-  run("front-cross-3", "power", 1, 0.112, [
-    front(-1.5, T2),
-    front(-3.4, T3 - 0.05),
-  ]),
   run("front-cross-4", "data", 1, 0.128, [
     front(0.4, T2 - 0.05),
     front(2.9, T3),
     front(5.7, T3),
   ]),
-  // Tucked in at its top, behind the café sign's plate.
-  run(
-    "front-cross-5",
-    "power",
-    1,
-    0.07,
-    [front(-2.3, T1, 0.2), front(0.4, T2 - 0.05, 0.22)],
-    0.02,
-  ),
   // Front: loose ends hanging off the tiers, down against the wall between the windows.
   run("front-loose-1", "data", 1, 0.05, [
     front(-3.5, T2 - 0.05),
@@ -379,7 +376,7 @@ export const WIRE_RUNS: readonly WireRun[] = [
     "right-1",
     "power",
     1,
-    0.24,
+    0.18,
     [
       right(-4.9, T1 + 0.05),
       right(-3.0, T1),
@@ -388,14 +385,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
       right(3.0, T1 + 0.05),
       right(4.85, T1),
     ],
-    0.01,
-  ),
-  run(
-    "right-1-data",
-    "data",
-    1,
-    0.13,
-    [right(-4.9, T1 + 0.05), right(-0.8, T1 + 0.05), right(3.0, T1 + 0.05)],
     0.01,
   ),
   run(
@@ -415,20 +404,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
     0.01,
   ),
   run(
-    "right-2-data",
-    "data",
-    1,
-    0.28,
-    [
-      right(-4.9, T2 - 0.1),
-      right(-3.05, T2 + 0.03),
-      right(-2.45, T2 + 0.03),
-      right(0.6, T2 - 0.1),
-      right(4.85, T2 - 0.1),
-    ],
-    0.01,
-  ),
-  run(
     "right-3",
     "power",
     1,
@@ -439,21 +414,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
       right(-2.45, T3 + 0.08),
       right(0.5, T3),
       right(1.6, T3),
-      right(2.4, T3 - 0.05),
-      right(4.85, T3),
-    ],
-    0.01,
-  ),
-  run(
-    "right-3-data",
-    "data",
-    1,
-    0.3,
-    [
-      right(-4.85, T3),
-      right(-3.05, T3 + 0.1),
-      right(-2.45, T3 + 0.08),
-      right(0.5, T3),
       right(2.4, T3 - 0.05),
       right(4.85, T3),
     ],
@@ -485,14 +445,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
     0.01,
   ),
   run(
-    "right-drop-3",
-    "data",
-    1,
-    0.08,
-    [right(4.95, T2 - 0.1), right(4.95, T3), right(4.95, TP)],
-    0.01,
-  ),
-  run(
     "right-cross-1",
     "power",
     1,
@@ -501,27 +453,11 @@ export const WIRE_RUNS: readonly WireRun[] = [
     0.01,
   ),
   run(
-    "right-cross-2",
-    "data",
-    1,
-    0.128,
-    [right(3.0, T1 + 0.05), right(4.85, T2 - 0.1)],
-    0.01,
-  ),
-  run(
     "right-cross-3",
     "power",
     1,
     0.08,
     [right(0.6, T2 - 0.1, 0.14), right(-2.45, T3 + 0.08)],
-    0.01,
-  ),
-  run(
-    "right-cross-4",
-    "data",
-    1,
-    0.128,
-    [right(4.95, T3), right(1.5, TP + 0.05)],
     0.01,
   ),
   // Right: two loose ends, and two wires into the flats.
@@ -548,11 +484,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
     left(-0.7, L0),
     left(0.25, L0 - 0.02),
   ]),
-  run("left-0-data", "data", 1, 0.13, [
-    left(-4.85, L0),
-    left(-0.7, L0),
-    left(0.25, L0 - 0.02),
-  ]),
   run("left-1", "power", 1, 0.22, [
     left(-4.85, L1),
     left(-2.6, L1 - 0.03),
@@ -561,14 +492,6 @@ export const WIRE_RUNS: readonly WireRun[] = [
     left(3.2, L1 - 0.03),
     left(4.9, L1),
   ]),
-  run("left-1-data", "data", 1, 0.24, [
-    left(-4.85, L1),
-    left(-0.2, L1),
-    left(2.1, L1 - 0.03),
-    left(3.2, L1 - 0.03),
-    left(4.9, L1),
-  ]),
-  run("left-drop", "power", 1, 0.064, [left(-4.85, L0), left(-4.85, L1)]),
   run("left-loose", "data", 1, 0.05, [
     left(-4.85, L0),
     loose("left", -4.7, 3.1),
@@ -601,19 +524,11 @@ export const WIRE_RUNS: readonly WireRun[] = [
     ...cap("right", 3.2),
     hook(4.0, -3.0),
   ]),
-  run("over-right-2", "data", 1, 0.05, [
-    right(-1.5, TP),
-    ...cap("right", -1.3),
-    hook(4.3, 1.6),
-  ]),
   // Across the roof, below the parapet's top: front to back and side to side.
   run("roof-1", "power", 1, 0.035, [hook(-5.2, 4.7), hook(-5.2, -4.7)]),
-  run("roof-2", "data", 1, 0.035, [hook(4.6, 4.7), hook(4.6, -4.7)]),
-  run("roof-3", "power", 2, 0.03, [hook(-5.7, 3.6), hook(5.7, 3.6)]),
+  run("roof-3", "power", 1, 0.03, [hook(-5.7, 3.6), hook(5.7, 3.6)]),
   run("roof-4", "data", 1, 0.03, [hook(-5.7, -0.6), hook(5.7, -0.6)]),
   run("roof-5", "power", 1, 0.03, [hook(-5.7, -4.2), hook(5.7, -4.2)]),
-  run("roof-6", "data", 1, 0.03, [hook(-3.6, 4.7), hook(-4.4, -4.7)]),
-  run("roof-7", "power", 1, 0.035, [hook(-5.7, -0.9), hook(5.7, -1.2)]),
   // Draped over the left and back parapets from the roof.
   run("cap-left-1", "power", 1, 0.06, [
     capInner("left", 0.6),
@@ -621,10 +536,8 @@ export const WIRE_RUNS: readonly WireRun[] = [
     hook(-1.8, 4.7),
   ]),
   // No masts: they crossed the rooftop sign from some orbits, so these all stay in the well.
-  run("cap-left-2", "data", 1, 0.03, [capInner("left", -4.0), hook(5.7, -4.0)]),
   run("cap-back-1", "power", 1, 0.03, [capInner("back", 5.0), hook(-5.0, 4.7)]),
   run("cap-back-2", "data", 1, 0.03, [capInner("back", -2.6), hook(2.6, 4.7)]),
-  run("cap-back-3", "data", 1, 0.03, [capInner("back", 0.8), hook(0.3, 4.7)]),
 ];
 
 /** A run's anchor as a world point. */
@@ -686,9 +599,14 @@ export function wireStrands(
         const length = Math.hypot(level, to.y - from.y);
         const segments = Math.min(
           WIRES.maxSegments,
-          Math.max(3, Math.ceil(length / WIRES.segmentM)),
+          Math.max(WIRES.minSegments, Math.ceil(length / WIRES.segmentM)),
         );
-        const span = sagPoints(from, to, r.sag * level * sagScale, segments);
+        const span = catenaryPoints(
+          from,
+          to,
+          r.sag * level * sagScale,
+          segments,
+        );
         points.push(...(i === 1 ? span : span.slice(1)));
       }
       strands.push({ run: r.id, kind: r.kind, thicknessM, points });

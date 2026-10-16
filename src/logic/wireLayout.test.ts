@@ -43,6 +43,7 @@ import {
   LOOSE_OUT_M,
   WIRES,
   WIRE_RUNS,
+  catenaryPoints,
   anchorPoint,
   wireBeams,
   wireHardware,
@@ -290,9 +291,10 @@ describe("WIRE_RUNS", () => {
   });
 
   it("is sparse but all round: wires on the front, right and left walls and the roof", () => {
-    // Round 2's 242 strands read as a bunched mass; the user asked for roughly 60 to 80.
-    expect(strands.length).toBeGreaterThanOrEqual(60);
-    expect(strands.length).toBeLessThanOrEqual(80);
+    // Round 2's 242 strands read as a bunched mass; round 3's 77 still looked busy, so the
+    // user asked for about 25 fewer (task 30).
+    expect(strands.length).toBeGreaterThanOrEqual(45);
+    expect(strands.length).toBeLessThanOrEqual(58);
     const count = (pred: (p: Vec3) => boolean): number =>
       strands.filter((s) => s.points.some(pred)).length;
     const nearWall = (side: Side) => (p: Vec3) => {
@@ -301,15 +303,15 @@ describe("WIRE_RUNS", () => {
         (p.x * n.x + p.z * n.z) / Math.hypot(n.x, n.z) - sideOffsetM(side);
       return out > 0 && out < 0.7 && p.y < roofTopY();
     };
-    expect(count(nearWall("front"))).toBeGreaterThan(25);
-    expect(count(nearWall("right"))).toBeGreaterThan(15);
-    expect(count(nearWall("left"))).toBeGreaterThan(10);
+    expect(count(nearWall("front"))).toBeGreaterThan(18);
+    expect(count(nearWall("right"))).toBeGreaterThan(10);
+    expect(count(nearWall("left"))).toBeGreaterThan(6);
     expect(
       count(
         (p) =>
           Math.abs(p.x) < HALF_W && Math.abs(p.z) < HALF_D && p.y > roofTopY(),
       ),
-    ).toBeGreaterThan(12);
+    ).toBeGreaterThan(6);
   });
 
   /** The runs that end free, of one kind, with their end and the anchor before it. */
@@ -392,6 +394,45 @@ describe("WIRE_RUNS", () => {
 describe("wireStrands", () => {
   it("is the same on every load", () => {
     expect(wireStrands()).toEqual(strands);
+  });
+
+  it("hangs each span as a smooth catenary: steepest at its anchors, flattest at the bottom", () => {
+    const from = { x: 0, y: 8, z: 0 };
+    const to = { x: 2.5, y: 8, z: 0 };
+    const span = catenaryPoints(from, to, 0.5, 9);
+    expect(span[0]).toEqual(from);
+    expect(span.at(-1)).toEqual(to);
+    // Its bottom is the sag, in the middle (an odd count straddles it).
+    const low = Math.min(...span.map((p) => p.y));
+    expect(low).toBeGreaterThan(from.y - 0.5 - 1e-9);
+    expect(low).toBeLessThan(from.y - 0.49);
+    const slopes = span
+      .slice(1)
+      .map(
+        (p, i) =>
+          Math.abs(p.y - (span[i]?.y ?? NaN)) / (p.x - (span[i]?.x ?? NaN)),
+      );
+    expect(slopes[0]).toBeGreaterThan(slopes[4] ?? Infinity);
+    // Never a sharp corner between neighbouring pieces.
+    for (let i = 1; i < slopes.length; i += 1) {
+      const turn = Math.abs(
+        Math.atan(slopes[i] ?? 0) - Math.atan(slopes[i - 1] ?? 0),
+      );
+      expect(turn).toBeLessThan(12 * DEG);
+    }
+  });
+
+  it("cuts the strands into short pieces, so the swags read smooth (task 30)", () => {
+    const lengths = wireBeams()
+      .map((b) =>
+        Math.hypot(b.to.x - b.from.x, b.to.y - b.from.y, b.to.z - b.from.z),
+      )
+      .sort((a, b) => a - b);
+    const median = lengths[Math.floor(lengths.length / 2)] ?? Infinity;
+    expect(median).toBeLessThan(WIRES.segmentM * 1.2);
+    // Only the longest roof spans, capped at 16 pieces, run a little over 0.7 m.
+    expect(lengths.at(-1)).toBeLessThan(0.8);
+    expect(WIRES.maxSegments).toBeGreaterThanOrEqual(12);
   });
 
   it("starts and ends every strand at one of its run's anchors: nothing trails off", () => {
@@ -677,8 +718,9 @@ describe("withWires", () => {
 
   it("keeps the strands cheap: a vertex budget headless (software) WebGL can draw", () => {
     // Round 1's 6,547 beams (107k vertices) made the slow smoke tests take about half as long
-    // again; round 2's 2,350 (40k) still cost a third of the headless frame rate.
-    expect(wireBeams().length * 16).toBeLessThan(15_000);
+    // again; round 2's 2,350 (40k) still cost a third of the headless frame rate. Task 30's
+    // smoother swags (pieces of about 0.3 m) cost nothing measurable at about 19k.
+    expect(wireBeams().length * 16).toBeLessThan(22_000);
   });
 
   it("shades the wires a pale grey with a faint sheen that never blooms, and keeps stickers off", () => {
