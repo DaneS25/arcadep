@@ -1,5 +1,6 @@
 import { PerspectiveCamera } from "three";
 import { signage } from "@/content/signage";
+import { CAMERA } from "@/logic/cameraOrbit";
 import type { SiteContent } from "@/content/types";
 import { createDisposer } from "@/logic/disposer";
 import { createFrameClock } from "@/logic/frameClock";
@@ -82,6 +83,12 @@ export function startApp(
   disposer.add(() => {
     renderer.dispose();
   });
+
+  // The terminal's jack-in waits this long for the camera to land (task 32, CSS).
+  win.document.documentElement.style.setProperty(
+    "--camera-move-ms",
+    `${String(CAMERA.tweenMs)}ms`,
+  );
 
   const reducedMotion = createReducedMotion((query) => win.matchMedia(query));
   disposer.add(() => {

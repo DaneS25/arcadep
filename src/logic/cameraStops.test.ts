@@ -16,6 +16,11 @@ import { withGenerator } from "./generatorLayout";
 import { neonStrips } from "./neonLayout";
 import { wireHardware, wireStrands } from "./wireLayout";
 import {
+  terminalLayout,
+  terminalScreenCentre,
+  terminalViewPose,
+} from "./terminalLayout";
+import {
   CAMERA,
   planPoseTween,
   posePosition,
@@ -60,23 +65,8 @@ const PROPS: readonly Box[] = [
   ...neonStrips().map(({ box }) => box),
 ];
 
-/** One box round every overhead wire, bracket and mast (task 29): the camera keeps out of all of it. */
-const WIRES_BOX: Box = (() => {
-  const points = [
-    ...wireStrands().flatMap((s) => s.points),
-    ...wireHardware().flatMap(({ box }) => [
-      {
-        x: box.centre.x - box.size.x / 2,
-        y: box.centre.y - box.size.y / 2,
-        z: box.centre.z - box.size.z / 2,
-      },
-      {
-        x: box.centre.x + box.size.x / 2,
-        y: box.centre.y + box.size.y / 2,
-        z: box.centre.z + box.size.z / 2,
-      },
-    ]),
-  ];
+/** A box round some points. */
+function boundsOf(points: readonly Vec3[]): Box {
   const lo = { x: Infinity, y: Infinity, z: Infinity };
   const hi = { x: -Infinity, y: -Infinity, z: -Infinity };
   for (const p of points)
@@ -92,7 +82,31 @@ const WIRES_BOX: Box = (() => {
     },
     size: { x: hi.x - lo.x, y: hi.y - lo.y, z: hi.z - lo.z },
   };
-})();
+}
+
+/**
+ * The overhead wires (tasks 29 and 30) as boxes round every few pieces of each strand,
+ * grown by its radius, plus their brackets: tight enough that a move may pass near the
+ * walls (the terminal's close-up, task 32) but never through a wire.
+ */
+const WIRE_BOXES: readonly Box[] = [
+  ...wireStrands().flatMap((s) => {
+    const boxes: Box[] = [];
+    for (let i = 0; i < s.points.length - 1; i += 3) {
+      const box = boundsOf(s.points.slice(i, i + 4));
+      boxes.push({
+        centre: box.centre,
+        size: {
+          x: box.size.x + s.thicknessM,
+          y: box.size.y + s.thicknessM,
+          z: box.size.z + s.thicknessM,
+        },
+      });
+    }
+    return boxes;
+  }),
+  ...wireHardware().map(({ box }) => box),
+];
 
 const DEG = Math.PI / 180;
 /** Where a move can start: each side's view, plus free-look orbits at the zoom limits. */
@@ -133,20 +147,21 @@ describe("stopPose", () => {
     );
   });
 
-  it("has no close-up for the right side, whose terminal jacks in instead", () => {
-    expect(CLOSE_UP_SIDES).not.toContain("right");
+  it("moves in to the door terminal's screen on the right (task 32)", () => {
+    expect(CLOSE_UP_SIDES).toContain("right");
     expect(stopPose({ kind: "closeUp", side: "right" })).toEqual(
-      sidePose("right"),
+      terminalViewPose(),
     );
   });
 });
 
 describe("closeUpSide", () => {
-  it("is the front, left or back only while its panel is open", () => {
+  it("is the panel's side only while its panel is open", () => {
     expect(closeUpSide(panel("front"))).toBe("front");
     expect(closeUpSide(panel("left"))).toBe("left");
     expect(closeUpSide(panel("back"))).toBe("back");
-    expect(closeUpSide(panel("right"))).toBeUndefined();
+    expect(closeUpSide(panel("right"))).toBe("right");
+    expect(closeUpSide(focused("right"))).toBeUndefined();
     expect(closeUpSide(focused("front"))).toBeUndefined();
     expect(closeUpSide(EXPLORING)).toBeUndefined();
   });
@@ -282,23 +297,88 @@ describe("the posters' close-up", () => {
   });
 });
 
-describe("moves to and from the signs and posters", () => {
-  it("never pass through the building, its roof, its props or the pavement", () => {
-    for (const side of ["left", "back"] as const) {
+describe("the terminal's close-up", () => {
+  const layout = terminalLayout();
+  const pose = terminalViewPose(layout);
+  const camera = posePosition(pose);
+  const [screen] = layout.faces;
+
+  it("looks straight at the screen from the pavement, a little above it", () => {
+    expect(pose.target).toEqual(terminalScreenCentre(layout));
+    expect(camera.x).toBeGreaterThan(pose.target.x + 0.8);
+    expect(Math.abs(camera.z - pose.target.z)).toBeLessThan(1e-9);
+    expect(camera.y).toBeGreaterThan(pose.target.y);
+    expect(camera.y - pose.target.y).toBeLessThan(0.3);
+    for (const part of layout.parts)
+      expect(inside(part, camera, 0.1)).toBe(false);
+    expect(camera.x).toBeLessThan(BUILDING.widthM / 2 + STREET.sidewalkWidthM);
+  });
+
+  for (const [label, aspect] of [
+    ["16:9", 16 / 9],
+    ["narrow 3:4", 3 / 4],
+  ] as const)
+    it(`frames the whole screen, centred, on a ${label} window`, () => {
+      const halfTan = Math.tan(25 * DEG);
+      const distance = camera.x - pose.target.x;
+      // The right wall faces +x, so the visitor's right is -z.
+      const xs = screen.corners.map(
+        (c) => (pose.target.z - c.z) / (distance * halfTan * aspect),
+      );
+      const ys = screen.corners.map(
+        (c) => (c.y - pose.target.y) / (distance * halfTan),
+      );
+      for (const v of [...xs, ...ys]) expect(Math.abs(v)).toBeLessThan(0.9);
+      // Large enough to read as the terminal, not a speck.
+      expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.25);
+    });
+});
+
+describe("moves to and from the close-ups", () => {
+  it("never pass through the building, its roof, its props, the generator, the wires or the pavement", () => {
+    for (const side of ["left", "back", "right"] as const) {
       const closeUp = stopPose({ kind: "closeUp", side });
-      for (const start of STARTS)
+      // The terminal opens only from where it can be seen: a click needs its screen or door
+      // in view, and the keys snap to the right view first. Closing backs out to the right
+      // view. So its moves start in front of the right wall; the signs and posters are
+      // checked from every start.
+      const starts =
+        side === "right"
+          ? [
+              ...STARTS.filter(
+                (start) => posePosition(start).x > BUILDING.widthM / 2,
+              ),
+              ...[30, 60, 90, 120, 150].map((azimuthDeg): CameraPose => ({
+                target: CAMERA.target,
+                orbit: {
+                  azimuthRad: azimuthDeg * DEG,
+                  polarRad: CAMERA.sidePolarRad,
+                  distanceM: CAMERA.minDistanceM,
+                },
+              })),
+            ]
+          : STARTS;
+      for (const start of starts)
         for (const [from, to] of [
           [start, closeUp],
           [closeUp, start],
         ] as const)
           for (const p of path(from, to)) {
-            expect(inside(BUILDING_BOX, p, 0.3)).toBe(false);
-            expect(inside(WIRES_BOX, p, 0.15)).toBe(false);
-            for (const box of PROPS) expect(inside(box, p, 0.15)).toBe(false);
-            expect(p.y).toBeGreaterThan(STREET.curbHeightM + 0.5);
+            const at = `${side} ${JSON.stringify(p)}`;
+            expect(inside(BUILDING_BOX, p, 0.3), `building ${at}`).toBe(false);
+            for (const box of WIRE_BOXES)
+              expect(inside(box, p, 0.15), `wires ${at}`).toBe(false);
+            for (const box of PROPS)
+              expect(inside(box, p, 0.15), `prop ${at}`).toBe(false);
+            if (side === "right")
+              for (const part of terminalLayout().parts)
+                expect(inside(part, p, 0.05), `terminal ${at}`).toBe(false);
+            expect(p.y, `pavement ${at}`).toBeGreaterThan(
+              STREET.curbHeightM + 0.5,
+            );
           }
     }
-  }, 20_000);
+  }, 30_000);
 });
 
 describe("cameraCue", () => {
@@ -347,15 +427,27 @@ describe("cameraCue", () => {
     }
   });
 
-  it("passes other snaps straight through, and leaves the right side's panel on its view", () => {
+  it("passes other snaps straight through", () => {
     expect(cameraCue(EXPLORING, focused("left"), "left")).toEqual({
       kind: "side",
       side: "left",
     });
-    expect(
-      cameraCue(focused("right"), panel("right"), undefined),
-    ).toBeUndefined();
+  });
+
+  it("moves in to the terminal when the contact panel opens, by key, click or the door, and back out (task 32)", () => {
+    expect(cameraCue(focused("right"), panel("right"), undefined)).toEqual({
+      kind: "closeUp",
+      side: "right",
+    });
     expect(cameraCue(EXPLORING, panel("right"), "right")).toEqual({
+      kind: "closeUp",
+      side: "right",
+    });
+    expect(cameraCue(panel("right"), focused("right"), undefined)).toEqual({
+      kind: "side",
+      side: "right",
+    });
+    expect(cameraCue(panel("right"), EXPLORING, undefined)).toEqual({
       kind: "side",
       side: "right",
     });

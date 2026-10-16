@@ -7,6 +7,7 @@
 
 import { boxesGeometryData, type GeometryData } from "./boxGeometry";
 import {
+  sideAzimuthRad,
   sideNormal,
   sideOffsetM,
   sideTangent,
@@ -24,8 +25,20 @@ import {
   type GlowQuad,
   type LocalBox,
 } from "./cabinetLayout";
+import type { CameraPose } from "./cameraOrbit";
 
 export const TERMINAL_SIDE: Side = "right";
+
+/**
+ * Where the camera stops to look at the terminal's screen when the contact panel opens
+ * (task 32), the way it moves in to the cabinet's screen: a little above it, straight on.
+ * At 1 m the 0.3 m screen fills about a third of a 50° view's height, and its 0.4 m width
+ * still fits across a narrow (3:4) window.
+ */
+export const TERMINAL_VIEW = {
+  polarRad: (80 * Math.PI) / 180,
+  distanceM: 1,
+} as const;
 
 /**
  * The canvas: the screen in the top 60% of the rows, the keypad below. `housingUv` is a
@@ -131,6 +144,32 @@ export function terminalLayout(side: Side = TERMINAL_SIDE): TerminalLayout {
     spot,
     parts: [worldBox(spot, housing), worldBox(spot, door)],
     faces: [face(spot, SCREEN), face(spot, KEYPAD)],
+  };
+}
+
+/** The middle of the terminal's screen. */
+export function terminalScreenCentre(
+  layout: TerminalLayout = terminalLayout(),
+): Vec3 {
+  const [screen] = layout.faces;
+  const n = screen.corners.length;
+  return screen.corners.reduce(
+    (m, c) => ({ x: m.x + c.x / n, y: m.y + c.y / n, z: m.z + c.z / n }),
+    { x: 0, y: 0, z: 0 },
+  );
+}
+
+/** Where the camera stops to look straight at the terminal's screen. */
+export function terminalViewPose(
+  layout: TerminalLayout = terminalLayout(),
+): CameraPose {
+  return {
+    target: terminalScreenCentre(layout),
+    orbit: {
+      azimuthRad: sideAzimuthRad(layout.side),
+      polarRad: TERMINAL_VIEW.polarRad,
+      distanceM: TERMINAL_VIEW.distanceM,
+    },
   };
 }
 
