@@ -223,6 +223,9 @@ export const DETAILS_LOOK = {
     lamp: 0,
     // The generator's slits (task 28): black under their cold glow.
     glow: 0,
+    // The overhead wires (task 29): a pale grey, over the metal, so they catch the neon
+    // and read as a tangle against the dark walls (with `WIRE_LOOK.sheen`).
+    wire: 1.4,
   },
   emissiveIntensity: 1.2,
   /**
@@ -324,6 +327,14 @@ export const GENERATOR_LOOK = {
   stencilRed: "#5c1520",
   stencilPale: "#5a5a66",
   stencilBase: "#08080b",
+} as const;
+
+/**
+ * The overhead wires (task 29): a faint, even violet-grey sheen through the details atlas,
+ * like neon caught along the strands. Far under the bloom threshold, so they never glow.
+ */
+export const WIRE_LOOK = {
+  sheen: "#272030",
 } as const;
 
 export const TONE_MAPPING = {

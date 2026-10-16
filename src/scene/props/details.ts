@@ -26,11 +26,13 @@ import {
 } from "@/logic/detailLayout";
 import { withDucts } from "@/logic/ductLayout";
 import { withGenerator } from "@/logic/generatorLayout";
+import { withWires } from "@/logic/wireLayout";
 import { withSidewalk } from "@/logic/sidewalkLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
   GENERATOR_LOOK,
+  WIRE_LOOK,
   LAMP_LOOK,
   SIGNS_LOOK,
   surfaceMaterialParams,
@@ -204,6 +206,15 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
   ctx.fillStyle = GENERATOR_LOOK.glow;
   ctx.fillRect(rects.glow.x, rects.glow.y, rects.glow.width, rects.glow.height);
   drawStencil(ctx, rects.stencil);
+  // The overhead wires (task 29): a faint, even sheen far under the bloom, so the strands
+  // read against the dark walls without glowing.
+  ctx.fillStyle = WIRE_LOOK.sheen;
+  ctx.fillRect(
+    rects.wireSheen.x,
+    rects.wireSheen.y,
+    rects.wireSheen.width,
+    rects.wireSheen.height,
+  );
   for (const [id, rect] of Object.entries(WINDOW_CELLS))
     drawWindowCell(ctx, id as WindowCellId, rect);
   // The sign plates' hover glow: red at the plates' old highlight strength once the
@@ -237,11 +248,13 @@ export function createDetails(
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  // Ducts (task 23), the generator (task 28), the pavement's drains, bags and litter
-  // (task 24), windows and doors join before the sign plates, which must stay last among
-  // the boxes.
+  // Ducts (task 23), the generator (task 28), the wires (task 29), the pavement's drains,
+  // bags and litter (task 24), windows and doors join before the sign plates, which must stay
+  // last among the boxes.
   const layout = withSignPlates(
-    withWindows(withSidewalk(withGenerator(withDucts(detailLayout())))),
+    withWindows(
+      withSidewalk(withWires(withGenerator(withDucts(detailLayout())))),
+    ),
     signPlates,
   );
   const paneStarts = glassVertexStarts(layout);
@@ -266,6 +279,8 @@ export function createDetails(
     cornerUvs(WINDOW_CELLS[id]).forEach(([u, v], corner) => {
       atlasUvs.setXY(start + corner, u, v);
     });
+    // Upload just this pane's corners, not the whole mesh's UVs (the wires make it large).
+    atlasUvs.addUpdateRange(start * 2, 8);
     atlasUvs.needsUpdate = true;
   };
   geometry.setAttribute("uv1", atlasUvs);
@@ -353,6 +368,7 @@ export function createDetails(
       platesLit = on;
       for (let i = plates.start; i < plates.start + plates.count; i += 1)
         atlasUvs.setXY(i, u, v);
+      atlasUvs.addUpdateRange(plates.start * 2, plates.count * 2);
       atlasUvs.needsUpdate = true;
     },
     update(dtMs, reducedMotion) {

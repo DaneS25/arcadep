@@ -187,9 +187,11 @@ describe("DETAILS_LOOK", () => {
     expect(DETAILS_LOOK.surface.slot).toBe("metal");
     expect(DETAILS_LOOK.shades.face).toBe(0);
     expect(DETAILS_LOOK.shades.metal).toBe(1);
-    for (const shade of Object.values(DETAILS_LOOK.shades)) {
+    for (const [kind, shade] of Object.entries(DETAILS_LOOK.shades)) {
       expect(shade).toBeGreaterThanOrEqual(0);
-      expect(shade).toBeLessThanOrEqual(1);
+      // The wires are a touch lighter than the metal so they catch the neon (task 29);
+      // `wireLayout.test.ts` keeps them under 2.
+      if (kind !== "wire") expect(shade).toBeLessThanOrEqual(1);
     }
   });
 });

@@ -341,6 +341,55 @@ test.describe("camera navigation", () => {
     });
   });
 
+  test("the overhead wires hang round every side and add no draw call", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    // The wires join the details mesh (task 29), so the budget holds from every side.
+    for (const side of ["right", "back", "left", "front"]) {
+      await page.keyboard.press("ArrowRight");
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
+      await page.waitForTimeout(300);
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      console.log(`wires: ${String(drawCalls)} draw calls from the ${side}`);
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+      await page.screenshot({ path: `test-results/wires-${side}.png` });
+    }
+    // The feeds down into the generator, close up from the left.
+    await page.keyboard.press("ArrowLeft");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await page.waitForTimeout(300);
+    const plugs = generatorPlugs();
+    const mid = plugs.reduce(
+      (m, p) => ({
+        x: m.x + p.position.x / plugs.length,
+        y: m.y + p.position.y / plugs.length,
+        z: m.z + p.position.z / plugs.length,
+      }),
+      { x: 0, y: 0, z: 0 },
+    );
+    const at = screenPointFromSide("left", mid, box);
+    const width = 900;
+    const height = 640;
+    await page.screenshot({
+      path: "test-results/wires-generator.png",
+      clip: {
+        x: Math.max(box.x, Math.round(at.x - width / 2)),
+        y: Math.max(box.y, Math.round(at.y - height * 0.55)),
+        width,
+        height,
+      },
+    });
+  });
+
   test("the pavement runs round the building within the draw-call budget and the street fades to black past it", async ({
     page,
   }) => {

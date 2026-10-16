@@ -40,7 +40,9 @@ export type DetailKind =
   /** A lamp's bulb (task 23): glows evenly with the atlas's lamp patch. */
   | "lamp"
   /** The generator's slits of cold light (task 28): glow evenly with the atlas's glow patch. */
-  | "glow";
+  | "glow"
+  /** The overhead wires (task 29): a shade lighter than the old cables, so they read at night. */
+  | "wire";
 
 export type DetailBox = {
   readonly kind: DetailKind;
@@ -106,12 +108,21 @@ export const DETAIL_TEXTURE = {
     /** The generator's warning stencil and its slits' cold glow (task 28). */
     stencil: { x: 640, y: 384, width: 128, height: 128 },
     glow: { x: 768, y: 384, width: 128, height: 128 },
+    /** The overhead wires' faint sheen (task 29), so they catch the neon in the dark. */
+    wireSheen: { x: 896, y: 384, width: 128, height: 128 },
   },
 } as const satisfies {
   widthPx: number;
   heightPx: number;
   rects: Record<
-    SignId | PatchFaceId | "dark" | "plateLit" | "puddle" | "lamp" | "glow",
+    | SignId
+    | PatchFaceId
+    | "dark"
+    | "plateLit"
+    | "puddle"
+    | "lamp"
+    | "glow"
+    | "wireSheen",
     PixelRect
   >;
 };
@@ -307,57 +318,6 @@ function drainPipe(side: Side, alongM: number): DetailBox {
       { across: D.pipeM, up: top, out: D.pipeM },
       D.pipeGapM,
     ),
-  };
-}
-
-/**
- * The alley cables (task 26: the utility poles are gone, so nothing stands out on the
- * pavement). Each runs from where it leaves the back wall to a wall bracket or a hook on
- * the parapet's face, sagging a little, picked round the windows, pipes, ducts and the
- * floor band. `alongM` as for the back side; tasks 28 and 29 re-route them later.
- */
-export const BACK_CABLES: readonly {
-  readonly from: { readonly alongM: number; readonly y: number };
-  readonly to: { readonly alongM: number; readonly y: number };
-  readonly sagM: number;
-}[] = [
-  // Up from the wall to a parapet hook, past the pipe's top.
-  {
-    from: { alongM: -2, y: 10.5 },
-    to: { alongM: -0.65, y: 13.45 },
-    sagM: 0.12,
-  },
-  // Up from over the second floor's right-hand poster (task 27) to a parapet hook.
-  {
-    from: { alongM: 3.3, y: 11.45 },
-    to: { alongM: 2.3, y: 13.45 },
-    sagM: 0.12,
-  },
-  // Across under the floor band to a wall bracket.
-  { from: { alongM: -5, y: 8 }, to: { alongM: -2, y: 8.05 }, sagM: 0.3 },
-];
-
-/** How far a cable runs out from the back wall, and its brackets' size. */
-export const CABLE_HANG = {
-  outM: 0.05,
-  bracket: { across: 0.08, up: 0.08, out: 0.1 },
-} as const;
-
-/** A cable's two ends on the back wall (or the parapet's face, flush with it). */
-export function backCableEnds(): { from: Vec3; to: Vec3; sagM: number }[] {
-  return BACK_CABLES.map(({ from, to, sagM }) => ({
-    from: pointOnSide("back", from.alongM, from.y, CABLE_HANG.outM),
-    to: pointOnSide("back", to.alongM, to.y, CABLE_HANG.outM),
-    sagM,
-  }));
-}
-
-/** A small bracket or hook on the wall round a cable's end. */
-function cableBracket(alongM: number, y: number): DetailBox {
-  const b = CABLE_HANG.bracket;
-  return {
-    kind: "metal",
-    box: wallBox("back", alongM, y - b.up / 2, b),
   };
 }
 
@@ -734,11 +694,6 @@ export function detailLayout(): DetailLayout {
         D.pipeGapM,
       ),
     },
-    // Brackets and parapet hooks holding the alley cables.
-    ...BACK_CABLES.flatMap(({ from, to }) => [
-      cableBracket(from.alongM, from.y),
-      cableBracket(to.alongM, to.y),
-    ]),
     // Puddles on the pavement.
     ...PUDDLES.map((p) => puddle(p.x, p.z, p.sizeX, p.sizeZ)),
     // Signs.
@@ -754,18 +709,13 @@ export function detailLayout(): DetailLayout {
       pointOnSide("front", halfW - 0.1, 11.9, 0.06),
       0.6,
     ),
-    // The alley cables, hung on the back wall.
-    ...backCableEnds().flatMap(({ from, to, sagM }) => cable(from, to, sagM)),
-    // From the right side's AC unit up to the roof, and between the left side's two.
+    // From the right side's AC unit up to the roof. (The alley cables on the back wall and
+    // the one between the left side's AC units went in task 29: from some orbits they crossed
+    // the posters and the skill signs; the wires in `wireLayout` replace them.)
     ...cable(
       pointOnSide("right", 2.5, 10.5, 0.3),
       pointOnSide("right", 3.2, top - 0.1, 0.05),
       0.1,
-    ),
-    ...cable(
-      pointOnSide("left", -2.75, 10.5, 0.3),
-      pointOnSide("left", 2.55, 9.7, 0.3),
-      0.35,
     ),
     ...roof.beams,
   ];
@@ -899,6 +849,7 @@ export function detailGeometryData(
   const dark = centreUv(DETAIL_TEXTURE.rects.dark);
   const lamp = centreUv(DETAIL_TEXTURE.rects.lamp);
   const glow = centreUv(DETAIL_TEXTURE.rects.glow);
+  const wireSheen = centreUv(DETAIL_TEXTURE.rects.wireSheen);
   const puddle = detailUv(DETAIL_TEXTURE.rects.puddle);
   const puddleCorners: [number, number][] = [
     [puddle.uMin, puddle.vMin],
@@ -957,7 +908,7 @@ export function detailGeometryData(
         );
         normals.push(n.x, n.y, n.z);
         uvs.push((sr * h) / tileM, (end * length) / tileM);
-        atlasUvs.push(...dark);
+        atlasUvs.push(...(beam.kind === "wire" ? wireSheen : dark));
         shade(beam.kind);
       }
       indices.push(first, first + 1, first + 2, first, first + 2, first + 3);
