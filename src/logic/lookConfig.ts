@@ -226,6 +226,8 @@ export const DETAILS_LOOK = {
     // The overhead wires (task 29): a pale grey, over the metal, so they catch the neon
     // and read as a tangle against the dark walls (with `WIRE_LOOK.sheen`).
     wire: 1.4,
+    // The wire taps' LEDs (task 33): black under their glow, like the lamp.
+    led: 0,
   },
   emissiveIntensity: 1.2,
   /**
@@ -335,6 +337,16 @@ export const GENERATOR_LOOK = {
  */
 export const WIRE_LOOK = {
   sheen: "#272030",
+} as const;
+
+/**
+ * The wire taps' LEDs (task 33): palette colours through the details atlas. Tiny, so even
+ * where one blooms a touch it reads as a status light and never outshines a sign.
+ */
+export const LED_LOOK = {
+  red: PALETTE.accent,
+  cyan: PALETTE.cyan,
+  purple: PALETTE.purple,
 } as const;
 
 export const TONE_MAPPING = {

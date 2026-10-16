@@ -10,6 +10,7 @@ import { backLampPosition, steamVents } from "../src/logic/ductLayout";
 import { generatorPlugs } from "../src/logic/generatorLayout";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
 import { seedFromText } from "../src/logic/neonFlicker";
+import { tapDevices } from "../src/logic/tapLayout";
 
 /**
  * Where a world point lands in the canvas from a side's view (the app's 50° camera), in
@@ -199,6 +200,84 @@ test.describe("camera navigation", () => {
       expect(await shoot()).toEqual(first);
     }
     await page.screenshot({ path: "test-results/windows-right.png" });
+  });
+
+  test("the wire taps add no draw call and their LEDs hold steady under reduced motion", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    const cdp = await page.context().newCDPSession(page);
+    const devices = tapDevices();
+    // From the front, then the right (the keys go round: right, back, left, front).
+    for (const [side, presses] of [
+      ["front", 0],
+      ["right", 1],
+    ] as const) {
+      for (let i = 0; i < presses; i += 1)
+        await page.keyboard.press("ArrowRight");
+      if (presses > 0)
+        await expect(canvas).toHaveAttribute("data-camera-side", side);
+      await page.waitForTimeout(300);
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+      const onSide = devices.filter((d) =>
+        side === "front" ? d.at.z > 4 : d.at.x > 5,
+      );
+      expect(onSide.length).toBeGreaterThan(0);
+      const clips = onSide.flatMap((d) =>
+        d.leds
+          .filter((l) => l.blink === true)
+          .map((l) => {
+            const p = screenPointFromSide(side, l.box.centre, box);
+            return {
+              x: Math.round(p.x - 4),
+              y: Math.round(p.y - 4),
+              width: 8,
+              height: 8,
+              scale: 1,
+            };
+          }),
+      );
+      expect(clips.length).toBeGreaterThan(0);
+      const shoot = async (): Promise<string[]> =>
+        Promise.all(
+          clips.map(
+            async (clip) =>
+              (
+                await cdp.send("Page.captureScreenshot", {
+                  format: "png",
+                  clip,
+                })
+              ).data,
+          ),
+        );
+      const first = await shoot();
+      // Long enough for several of the 400 ms blink slots to pass.
+      for (let i = 0; i < 10; i += 1) {
+        await page.waitForTimeout(150);
+        expect(await shoot()).toEqual(first);
+      }
+      for (const d of onSide) {
+        const at = screenPointFromSide(side, d.at, box);
+        await page.screenshot({
+          path: `test-results/taps-${d.id}.png`,
+          clip: {
+            x: Math.max(box.x, Math.round(at.x - 120)),
+            y: Math.max(box.y, Math.round(at.y - 80)),
+            width: 240,
+            height: 160,
+          },
+        });
+      }
+    }
   });
 
   test("close-ups of the weathered walls stay within the draw-call budget", async ({

@@ -37,6 +37,7 @@ import { neonStrips } from "./neonLayout";
 import { withSidewalk } from "./sidewalkLayout";
 import { skillSignsLayout } from "./skillSignsLayout";
 import { terminalLayout } from "./terminalLayout";
+import { tapDevices } from "./tapLayout";
 import { withWindows } from "./windowLayout";
 import {
   INTO_WINDOW_OUT_M,
@@ -60,6 +61,17 @@ const HALF_D = BUILDING.depthM / 2;
 
 const strands = wireStrands();
 const hardware = wireHardware();
+/** The wire taps (task 33): held to the same rules as the wires and their brackets. */
+const taps = tapDevices(strands);
+const TAP_BOXES = taps.flatMap((d) => [...d.boxes, ...d.leds]);
+const TAP_STRANDS: WireStrand[] = taps.flatMap((d) =>
+  d.beams.map((b, i) => ({
+    run: `tap ${d.id} ${String(i)}`,
+    kind: "data" as const,
+    thicknessM: b.thicknessM,
+    points: [b.from, b.to],
+  })),
+);
 
 /** Whether the segment from `a` to `b` passes through `box` grown by `margin` (slab test). */
 function segmentHits(a: Vec3, b: Vec3, box: Box, margin = 0): boolean {
@@ -529,11 +541,14 @@ describe("wireStrands", () => {
           continue;
         if (pieceHitsBox(piece, box)) hits.push(`${piece.run} x ${tag}`);
       }
-    // Nor do their brackets, hooks and saddles.
-    for (const { box } of hardware)
+    // Nor do their brackets, hooks and saddles, nor the taps (task 33).
+    for (const { box } of [...hardware, ...TAP_BOXES])
       for (const { tag, box: other } of props)
         if (boxesOverlap(box, other, -1e-6))
-          hits.push(`bracket ${JSON.stringify(box.centre)} x ${tag}`);
+          hits.push(`bracket or tap ${JSON.stringify(box.centre)} x ${tag}`);
+    for (const piece of pieces(TAP_STRANDS, 0))
+      for (const { tag, box } of props)
+        if (pieceHitsBox(piece, box)) hits.push(`${piece.run} x ${tag}`);
     expect(hits).toEqual([]);
   }, 20_000);
 });
@@ -603,6 +618,7 @@ describe("the wires in every view", () => {
   const WIRE_PIECES = pieces(
     [
       ...strands,
+      ...TAP_STRANDS,
       ...detailLayout()
         .beams.filter((b) => b.kind === "cable")
         .map((b, i) => ({
@@ -628,9 +644,9 @@ describe("the wires in every view", () => {
         if (dot(sub(camera, point), normal) <= 0) continue;
         if (segmentHits(camera, point, BUILDING_SOLID)) continue;
         checked += 1;
-        for (const { box } of hardware)
+        for (const { box } of [...hardware, ...TAP_BOXES])
           if (segmentHits(camera, point, box, MARGIN))
-            blocked.push(`bracket ${JSON.stringify(box.centre)}`);
+            blocked.push(`bracket or tap ${JSON.stringify(box.centre)}`);
         for (const piece of WIRE_PIECES) {
           if (!segmentHits(camera, point, piece.bounds)) continue;
           for (let i = 1; i < piece.points.length; i += 1) {
@@ -687,10 +703,10 @@ describe("the wires in every view", () => {
         ),
       ),
     ];
-    for (const piece of pieces(strands, 0))
+    for (const piece of pieces([...strands, ...TAP_STRANDS], 0))
       for (const box of keepOut)
         expect(pieceHitsBox(piece, box), piece.run).toBe(false);
-    for (const { box } of hardware)
+    for (const { box } of [...hardware, ...TAP_BOXES])
       for (const k of keepOut) expect(boxesOverlap(box, k)).toBe(false);
   });
 });

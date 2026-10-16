@@ -15,6 +15,7 @@ import {
   DETAIL_TEXTURE,
   WINDOW_CELLS,
   centreUv,
+  VERTICES_PER_BOX,
   cornerUvs,
   detailGeometryData,
   detailLayout,
@@ -27,12 +28,14 @@ import {
 import { withDucts } from "@/logic/ductLayout";
 import { withGenerator } from "@/logic/generatorLayout";
 import { withWires } from "@/logic/wireLayout";
+import { blinkingLedStarts, darkLed, withTaps } from "@/logic/tapLayout";
 import { withSidewalk } from "@/logic/sidewalkLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
   GENERATOR_LOOK,
   WIRE_LOOK,
+  LED_LOOK,
   LAMP_LOOK,
   SIGNS_LOOK,
   surfaceMaterialParams,
@@ -215,6 +218,15 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
     rects.wireSheen.width,
     rects.wireSheen.height,
   );
+  // The wire taps' LEDs (task 33), one patch per palette colour.
+  for (const [rect, color] of [
+    [rects.ledRed, LED_LOOK.red],
+    [rects.ledCyan, LED_LOOK.cyan],
+    [rects.ledPurple, LED_LOOK.purple],
+  ] as const) {
+    ctx.fillStyle = color;
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  }
   for (const [id, rect] of Object.entries(WINDOW_CELLS))
     drawWindowCell(ctx, id as WindowCellId, rect);
   // The sign plates' hover glow: red at the plates' old highlight strength once the
@@ -248,15 +260,18 @@ export function createDetails(
   doc: Document = document,
 ): Details {
   const look = DETAILS_LOOK.surface;
-  // Ducts (task 23), the generator (task 28), the wires (task 29), the pavement's drains,
-  // bags and litter (task 24), windows and doors join before the sign plates, which must stay
-  // last among the boxes.
+  // Ducts (task 23), the generator (task 28), the wires (task 29) and their taps (task 33),
+  // the pavement's drains, bags and litter (task 24), windows and doors join before the sign
+  // plates, which must stay last among the boxes.
   const layout = withSignPlates(
     withWindows(
-      withSidewalk(withWires(withGenerator(withDucts(detailLayout())))),
+      withSidewalk(
+        withTaps(withWires(withGenerator(withDucts(detailLayout())))),
+      ),
     ),
     signPlates,
   );
+  const ledStarts = blinkingLedStarts(layout);
   const paneStarts = glassVertexStarts(layout);
   const flickering = flickeringPanes(layout.glass);
   const plates = signPlateVertices(layout);
@@ -272,6 +287,27 @@ export function createDetails(
   let platesLit = false;
   let flickerMs = 0;
   let cutOut: number | undefined;
+  let darkened: number | undefined;
+  /** Points every corner of blinking LED `index` at `rect` of the atlas (its colour or dark). */
+  const setLed = (index: number, lit: boolean): void => {
+    const start = ledStarts[index];
+    const part =
+      start === undefined ? undefined : layout.boxes[start / VERTICES_PER_BOX];
+    if (start === undefined || part === undefined) return;
+    const rects = DETAIL_TEXTURE.rects;
+    const rect = !lit
+      ? rects.dark
+      : part.led === "cyan"
+        ? rects.ledCyan
+        : part.led === "purple"
+          ? rects.ledPurple
+          : rects.ledRed;
+    const [u, v] = centreUv(rect);
+    for (let i = start; i < start + VERTICES_PER_BOX; i += 1)
+      atlasUvs.setXY(i, u, v);
+    atlasUvs.addUpdateRange(start * 2, VERTICES_PER_BOX * 2);
+    atlasUvs.needsUpdate = true;
+  };
   /** Points pane `index` (into `layout.glass`) at a window cell of the atlas. */
   const setPaneCell = (index: number, id: WindowCellId): void => {
     const start = paneStarts[index];
@@ -374,6 +410,13 @@ export function createDetails(
     update(dtMs, reducedMotion) {
       // Kept within one flicker cycle, so it never grows without bound.
       flickerMs = (flickerMs + Math.max(0, dtMs)) % FLICKER_CYCLE_MS;
+      // The taps' blinking LEDs (task 33), never in a window's slot.
+      const led = darkLed(flickerMs, ledStarts.length, reducedMotion);
+      if (led !== darkened) {
+        if (darkened !== undefined) setLed(darkened, true);
+        darkened = led;
+        if (led !== undefined) setLed(led, false);
+      }
       const next = dimmedWindow(flickerMs, flickering.length, reducedMotion);
       if (next === cutOut) return;
       const restore = cutOut === undefined ? undefined : flickering[cutOut];
