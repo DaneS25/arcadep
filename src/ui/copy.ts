@@ -33,6 +33,9 @@ export const CABINET_MARQUEE = "ABOUT ME";
 /** Small line under the prompt on the cabinet's screen. */
 export const CABINET_CREDIT = "CREDIT 01";
 
+/** The exit sign over the back's left-hand door (task 34). */
+export const EXIT_SIGN = "EXIT";
+
 /** The CRT panel's page buttons and their group. */
 export const CRT_PAGES_LABEL = "About pages";
 export const CRT_PREVIOUS = "Previous";

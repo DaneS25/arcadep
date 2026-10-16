@@ -44,6 +44,7 @@ const SHADES: DetailShades = {
   glow: 0,
   wire: 0.2,
   led: 0,
+  light: 0,
 };
 
 function corners(box: Box): Vec3[] {

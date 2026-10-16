@@ -31,6 +31,7 @@ import {
 import { spotFor, toLocal, toWorld } from "./cabinetLayout";
 import type { CameraPose } from "./cameraOrbit";
 import { grimeMarks, type TintId } from "./grimeLayout";
+import { paintClearRects } from "./lightLayout";
 import { TAG_COLORS } from "./graffitiTags";
 import { PALETTE } from "./palette";
 import { createRng } from "./rng";
@@ -223,8 +224,9 @@ export type GraffitiLayout = {
   readonly wallRect: PixelRect;
   /**
    * The windows' glass and frames on this wall, in atlas pixels (task 20): wiped clear
-   * after the paint, so the graffiti stops at each frame and the glass stays clean. Doors
-   * and boarded windows are not in it; they get painted over.
+   * after the paint, so the graffiti stops at each frame and the glass stays clean, and the
+   * exit sign's outline (task 34). Doors and boarded windows are not in it; they get
+   * painted over.
    */
   readonly clearRects: readonly PixelRect[];
   readonly posters: readonly PosterPlacement[];
@@ -385,8 +387,9 @@ export function graffitiLayout(
     ),
   );
 
-  const clearRects = glassRects(side).map((rect) =>
-    wallPixelRect(spot, wallRect, rect),
+  // The glass, and the exit sign over the left-hand back door (task 34).
+  const clearRects = [...glassRects(side), ...paintClearRects(side)].map(
+    (rect) => wallPixelRect(spot, wallRect, rect),
   );
 
   return {

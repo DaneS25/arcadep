@@ -6,6 +6,7 @@ import {
   flickerLevels,
   maxFlashesPerSecond,
   seedFromText,
+  slotOwner,
 } from "./neonFlicker";
 
 /** Flash start times (ms) of the whole cluster, sampled every millisecond. */
@@ -51,10 +52,23 @@ describe("neon flicker", () => {
     }
   });
 
-  it("is deterministic for a seed and differs between seeds", () => {
+  it("is deterministic for a seed, and a seed picks which sign dims, not when (task 34)", () => {
     const a = flashStarts(7, 6, 20_000);
     expect(flashStarts(7, 6, 20_000)).toEqual(a);
-    expect(flashStarts(8, 6, 20_000)).not.toEqual(a);
+    // The slots belong to the scene's shared budget, so every seed dims in the same slots…
+    expect(flashStarts(8, 6, 20_000)).toEqual(a);
+    // …but not the same signs.
+    const which = (seed: number) => a.map((t) => dimmedSign(t, seed, 6, false));
+    expect(which(7)).toEqual(which(7));
+    expect(which(8)).not.toEqual(which(7));
+  });
+
+  it("dims the signs only in the slots the shared budget gives them", () => {
+    for (let slot = 0; slot < FLICKER.cycleSlots; slot += 1) {
+      const t = slot * FLICKER.slotMs;
+      const dims = dimmedSign(t, 3, 6, false) !== undefined;
+      expect(dims).toBe(slotOwner(slot) === "signs");
+    }
   });
 
   it("is gentle: signs are fully lit most of the time", () => {

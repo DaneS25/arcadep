@@ -10,11 +10,10 @@
  * LEDs are boxes of the `led` kind, lit by their own atlas patch in the palette's red, cyan
  * or purple. Pure numbers in metres.
  *
- * Blinking: time is cut into the flicker's 400 ms slots (`neonFlicker`). In a slot at most
- * one blinking LED goes dark, for the first `offMs`, and never in a slot where one of the
- * flickering windows (right side) dips, so the LEDs and the windows together never flash
- * more than 3 times a second, even from an orbit that sees both. The generator's LEDs stay
- * steady: the left side's skill signs already flicker. Nothing blinks under reduced motion.
+ * Blinking: the taps' share of the scene's one flash budget (`neonFlicker`): in a slot the
+ * taps own, one blinking LED goes dark for its first 200 ms, and no window, sign or light
+ * flashes in that slot, so nothing in any view flashes more than 3 times a second together.
+ * The generator's LEDs stay steady. Nothing blinks under reduced motion.
  */
 
 import {
@@ -31,17 +30,16 @@ import {
   type DetailBeam,
   type DetailBox,
   type DetailLayout,
-  type LedColor,
+  type GlowColor,
 } from "./detailLayout";
 import { housingTopY } from "./generatorLayout";
-import { FLICKER } from "./neonFlicker";
-import { dimmedWindow, flickeringPanes, windowLayout } from "./windowLayout";
+import { flashing } from "./neonFlicker";
 import { wireStrands, type WireStrand } from "./wireLayout";
 
 /** An LED: a tiny box of the `led` kind, glowing with its colour's atlas patch. */
 export type TapLed = DetailBox & {
   readonly kind: "led";
-  readonly led: LedColor;
+  readonly glow: GlowColor;
 };
 
 export type TapDevice = {
@@ -63,10 +61,6 @@ export const TAPS = {
   /** Leads and the antenna: thin wire. */
   leadM: 0.008,
   antennaM: 0.01,
-  /** How long a blinking LED stays dark at the start of its slot. */
-  offMs: 200,
-  /** Chance that a slot has a blink at all. */
-  blinkChance: 0.55,
   seed: 0x7a95b1e3,
 } as const;
 
@@ -139,7 +133,7 @@ function led(
   along: number,
   y: number,
   frontOut: number,
-  color: LedColor,
+  color: GlowColor,
   blink: boolean,
 ): TapLed {
   const s = TAPS.ledM;
@@ -149,8 +143,8 @@ function led(
     out: s,
   });
   return blink
-    ? { kind: "led", noStickers: true, box, led: color, blink: true }
-    : { kind: "led", noStickers: true, box, led: color };
+    ? { kind: "led", noStickers: true, box, glow: color, blink: true }
+    : { kind: "led", noStickers: true, box, glow: color };
 }
 
 const beam = (from: Vec3, to: Vec3, thicknessM: number): DetailBeam => ({
@@ -328,7 +322,7 @@ function generatorTap(strands: readonly WireStrand[]): TapDevice {
       {
         kind: "led",
         noStickers: true,
-        led: "purple",
+        glow: "purple",
         box: wallBox(
           side,
           along + 0.04,
@@ -383,37 +377,15 @@ export function blinkingLedStarts(layout: DetailLayout): number[] {
   );
 }
 
-/** How many window panes flicker, so the LEDs keep out of their slots. */
-const FLICKERING_WINDOWS = flickeringPanes(windowLayout().glass).length;
-
-/** A 32-bit integer hash of a seed and a slot. */
-function hash(seed: number, slot: number): number {
-  let h = (Math.trunc(seed) ^ Math.imul(slot + 1, 0x9e3779b1)) >>> 0;
-  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
-  return (h ^ (h >>> 16)) >>> 0;
-}
-
 /**
  * Which of the `count` blinking LEDs is dark `timeMs` into the pattern, or undefined when
- * all are lit. At most one per slot, never in a slot where a flickering window dips, and
- * never under reduced motion.
+ * all are lit: the taps' share of the scene's flash budget (`neonFlicker`), so they never
+ * flash at once with the windows, signs or lights. Never under reduced motion.
  */
 export function darkLed(
   timeMs: number,
   count: number,
   reducedMotion: boolean,
 ): number | undefined {
-  if (reducedMotion || count <= 0 || !Number.isFinite(timeMs) || timeMs < 0)
-    return undefined;
-  const slot = Math.floor(timeMs / FLICKER.slotMs) % FLICKER.cycleSlots;
-  if (timeMs % FLICKER.slotMs >= TAPS.offMs) return undefined;
-  // The windows' dip, if any, starts at the slot's start.
-  if (
-    dimmedWindow(slot * FLICKER.slotMs, FLICKERING_WINDOWS, false) !== undefined
-  )
-    return undefined;
-  const h = hash(TAPS.seed, slot);
-  if ((h & 0xffff) / 0x10000 >= TAPS.blinkChance) return undefined;
-  return (h >>> 16) % Math.trunc(count);
+  return flashing(timeMs, "taps", TAPS.seed, count, reducedMotion);
 }

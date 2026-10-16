@@ -15,6 +15,7 @@ import {
   DETAIL_TEXTURE,
   WINDOW_CELLS,
   centreUv,
+  glowUvs,
   VERTICES_PER_BOX,
   cornerUvs,
   detailGeometryData,
@@ -29,6 +30,12 @@ import { withDucts } from "@/logic/ductLayout";
 import { withGenerator } from "@/logic/generatorLayout";
 import { withWires } from "@/logic/wireLayout";
 import { blinkingLedStarts, darkLed, withTaps } from "@/logic/tapLayout";
+import {
+  cutOutLight,
+  flickeringLightVertices,
+  withLights,
+} from "@/logic/lightLayout";
+import { EXIT_SIGN } from "@/ui/copy";
 import { withSidewalk } from "@/logic/sidewalkLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
@@ -36,6 +43,7 @@ import {
   GENERATOR_LOOK,
   WIRE_LOOK,
   LED_LOOK,
+  LIGHTS_LOOK,
   LAMP_LOOK,
   SIGNS_LOOK,
   surfaceMaterialParams,
@@ -227,6 +235,22 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
     ctx.fillStyle = color;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
   }
+  // The small lights (task 34): a cold bulb, a cold tube, and the exit sign's lettering.
+  ctx.fillStyle = LIGHTS_LOOK.bulb;
+  ctx.fillRect(
+    rects.lightBulb.x,
+    rects.lightBulb.y,
+    rects.lightBulb.width,
+    rects.lightBulb.height,
+  );
+  ctx.fillStyle = LIGHTS_LOOK.tube;
+  ctx.fillRect(
+    rects.lightTube.x,
+    rects.lightTube.y,
+    rects.lightTube.width,
+    rects.lightTube.height,
+  );
+  drawSign(ctx, rects.exit, EXIT_SIGN, LIGHTS_LOOK.exit, neon);
   for (const [id, rect] of Object.entries(WINDOW_CELLS))
     drawWindowCell(ctx, id as WindowCellId, rect);
   // The sign plates' hover glow: red at the plates' old highlight strength once the
@@ -266,12 +290,15 @@ export function createDetails(
   const layout = withSignPlates(
     withWindows(
       withSidewalk(
-        withTaps(withWires(withGenerator(withDucts(detailLayout())))),
+        withLights(
+          withTaps(withWires(withGenerator(withDucts(detailLayout())))),
+        ),
       ),
     ),
     signPlates,
   );
   const ledStarts = blinkingLedStarts(layout);
+  const lights = flickeringLightVertices(layout);
   const paneStarts = glassVertexStarts(layout);
   const flickering = flickeringPanes(layout.glass);
   const plates = signPlateVertices(layout);
@@ -288,24 +315,37 @@ export function createDetails(
   let flickerMs = 0;
   let cutOut: number | undefined;
   let darkened: number | undefined;
-  /** Points every corner of blinking LED `index` at `rect` of the atlas (its colour or dark). */
-  const setLed = (index: number, lit: boolean): void => {
-    const start = ledStarts[index];
-    const part =
-      start === undefined ? undefined : layout.boxes[start / VERTICES_PER_BOX];
-    if (start === undefined || part === undefined) return;
-    const rects = DETAIL_TEXTURE.rects;
-    const rect = !lit
-      ? rects.dark
-      : part.led === "cyan"
-        ? rects.ledCyan
-        : part.led === "purple"
-          ? rects.ledPurple
-          : rects.ledRed;
-    const [u, v] = centreUv(rect);
+  let litOut: number | undefined;
+  const glows = glowUvs();
+  const dark = centreUv(DETAIL_TEXTURE.rects.dark);
+  /** Points every corner of the glowing box from vertex `start` at its glow, or at the dark patch. */
+  const setGlowBox = (start: number, lit: boolean): void => {
+    const part = layout.boxes[start / VERTICES_PER_BOX];
+    if (part === undefined) return;
+    const [u, v] = lit ? glows[part.glow ?? "red"] : dark;
     for (let i = start; i < start + VERTICES_PER_BOX; i += 1)
       atlasUvs.setXY(i, u, v);
     atlasUvs.addUpdateRange(start * 2, VERTICES_PER_BOX * 2);
+    atlasUvs.needsUpdate = true;
+  };
+  /** Turns blinking LED `index` on or off. */
+  const setLed = (index: number, lit: boolean): void => {
+    const start = ledStarts[index];
+    if (start !== undefined) setGlowBox(start, lit);
+  };
+  /** Turns flickering light `index` on or off: its glowing boxes, or its face (the exit sign). */
+  const setLight = (index: number, lit: boolean): void => {
+    const light = lights[index];
+    if (light === undefined) return;
+    for (const start of light.boxStarts) setGlowBox(start, lit);
+    const faceStart = light.faceStart;
+    if (faceStart === undefined) return;
+    const corners = cornerUvs(DETAIL_TEXTURE.rects.exit);
+    corners.forEach(([u, v], corner) => {
+      const [du, dv] = dark;
+      atlasUvs.setXY(faceStart + corner, lit ? u : du, lit ? v : dv);
+    });
+    atlasUvs.addUpdateRange(faceStart * 2, 8);
     atlasUvs.needsUpdate = true;
   };
   /** Points pane `index` (into `layout.glass`) at a window cell of the atlas. */
@@ -416,6 +456,13 @@ export function createDetails(
         if (darkened !== undefined) setLed(darkened, true);
         darkened = led;
         if (led !== undefined) setLed(led, false);
+      }
+      // The small lights (task 34), in their own slots of the same budget.
+      const light = cutOutLight(flickerMs, lights.length, reducedMotion);
+      if (light !== litOut) {
+        if (litOut !== undefined) setLight(litOut, true);
+        litOut = light;
+        if (light !== undefined) setLight(light, false);
       }
       const next = dimmedWindow(flickerMs, flickering.length, reducedMotion);
       if (next === cutOut) return;
