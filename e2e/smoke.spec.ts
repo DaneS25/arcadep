@@ -7,6 +7,7 @@ import type { Side, Vec3 } from "../src/logic/buildingLayout";
 import { pointOnSide, wallOpenings } from "../src/logic/buildingLayout";
 import { posePosition, sidePose } from "../src/logic/cameraOrbit";
 import { backLampPosition, steamVents } from "../src/logic/ductLayout";
+import { generatorPlugs } from "../src/logic/generatorLayout";
 import { graffitiLayout } from "../src/logic/graffitiLayout";
 import { seedFromText } from "../src/logic/neonFlicker";
 
@@ -294,6 +295,50 @@ test.describe("camera navigation", () => {
       },
     });
     await page.screenshot({ path: "test-results/ducts-back-full.png" });
+  });
+
+  test("the generator stands on the left side's pavement and adds no draw call", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    // The generator joins the details mesh (task 28), so the budget holds.
+    await page.keyboard.press("ArrowLeft");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await page.waitForTimeout(300);
+    const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+    console.log(`generator: ${String(drawCalls)} draw calls from the left`);
+    expect(drawCalls).toBeGreaterThan(0);
+    expect(drawCalls).toBeLessThanOrEqual(12);
+    await page.screenshot({ path: "test-results/generator-left.png" });
+    // A close crop round the generator, its ports in the middle.
+    const plugs = generatorPlugs();
+    const mid = plugs.reduce(
+      (m, p) => ({
+        x: m.x + p.position.x / plugs.length,
+        y: m.y + p.position.y / plugs.length,
+        z: m.z + p.position.z / plugs.length,
+      }),
+      { x: 0, y: 0, z: 0 },
+    );
+    const at = screenPointFromSide("left", mid, box);
+    const width = 760;
+    const height = 560;
+    await page.screenshot({
+      path: "test-results/generator-close.png",
+      clip: {
+        x: Math.max(box.x, Math.round(at.x - width / 2)),
+        y: Math.max(box.y, Math.round(at.y - height * 0.4)),
+        width,
+        height,
+      },
+    });
   });
 
   test("the pavement runs round the building within the draw-call budget and the street fades to black past it", async ({

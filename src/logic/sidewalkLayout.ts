@@ -29,6 +29,7 @@ import {
   type Side,
 } from "./buildingLayout";
 import { DUCT_RUNS } from "./ductLayout";
+import { generatorFootprint } from "./generatorLayout";
 import {
   DETAIL_SIZES,
   PUDDLES,
@@ -237,7 +238,7 @@ export function binBags(): DetailBox[] {
   ];
 }
 
-/** Ground rectangles litter keeps out of: doors, spots, puddles, drains, the grate, bags. */
+/** Ground rectangles litter keeps out of: doors, spots, puddles, drains, the grate, bags, the generator. */
 export function litterKeepOut(): Rect[] {
   const rects: Rect[] = [];
   // In front of every ground-floor door, where it swings and people walk.
@@ -273,6 +274,14 @@ export function litterKeepOut(): Rect[] {
   for (const d of drains())
     for (const part of drainParts(d)) rects.push(groundRect(part.box, 0.1));
   for (const part of binBags()) rects.push(groundRect(part.box, 0.15));
+  // The generator's skid (task 28), with a little room round it.
+  const gen = generatorFootprint();
+  rects.push({
+    minX: gen.minX - 0.15,
+    maxX: gen.maxX + 0.15,
+    minZ: gen.minZ - 0.15,
+    maxZ: gen.maxZ + 0.15,
+  });
   const g = pointOnSide(
     "back",
     DUCT_RUNS.grate.alongM,

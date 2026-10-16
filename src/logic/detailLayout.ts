@@ -38,9 +38,16 @@ export type DetailKind =
   /** A door leaf. */
   | "door"
   /** A lamp's bulb (task 23): glows evenly with the atlas's lamp patch. */
-  | "lamp";
+  | "lamp"
+  /** The generator's slits of cold light (task 28): glow evenly with the atlas's glow patch. */
+  | "glow";
 
-export type DetailBox = { readonly kind: DetailKind; readonly box: Box };
+export type DetailBox = {
+  readonly kind: DetailKind;
+  readonly box: Box;
+  /** Keeps stickers off a box whose kind would get them (the generator, task 28 review). */
+  readonly noStickers?: boolean;
+};
 
 /** A thin square bar between two points, for cables and braces that don't run along an axis. */
 export type DetailBeam = {
@@ -52,8 +59,14 @@ export type DetailBeam = {
 
 export type SignId = "rooftop" | "cafe" | "arcade";
 
-/** A sign's glowing face, mapped to its own rectangle of the atlas. */
-export type SignFace = { readonly sign: SignId; readonly quad: AtlasQuad };
+/** A quad of the atlas that isn't a sign: the generator's warning stencils (task 28). */
+export type PatchFaceId = "stencil";
+
+/** A sign's glowing face (or a stencil), mapped to its own rectangle of the atlas. */
+export type SignFace = {
+  readonly sign: SignId | PatchFaceId;
+  readonly quad: AtlasQuad;
+};
 
 /** A window's (or the shop door's) glass, mapped to its cell of the atlas (task 20). */
 export type WindowGlass = {
@@ -90,11 +103,17 @@ export const DETAIL_TEXTURE = {
     puddle: { x: 256, y: 384, width: 256, height: 128 },
     /** The back door lamp's bulb (task 23). */
     lamp: { x: 512, y: 384, width: 128, height: 128 },
+    /** The generator's warning stencil and its slits' cold glow (task 28). */
+    stencil: { x: 640, y: 384, width: 128, height: 128 },
+    glow: { x: 768, y: 384, width: 128, height: 128 },
   },
 } as const satisfies {
   widthPx: number;
   heightPx: number;
-  rects: Record<SignId | "dark" | "plateLit" | "puddle" | "lamp", PixelRect>;
+  rects: Record<
+    SignId | PatchFaceId | "dark" | "plateLit" | "puddle" | "lamp" | "glow",
+    PixelRect
+  >;
 };
 
 /** A window cell of the atlas: one look of lit, shaded, dark or broken glass. */
@@ -697,7 +716,8 @@ export function detailLayout(): DetailLayout {
     // Low on the first floor, under its right-hand window (task 27: the poster took its spot).
     ...vent("back", 0.9, 4.8),
     ...vent("front", -1.2, 7.4),
-    ...vent("left", 2.5, 2.6),
+    // Between the two left-hand ground-floor windows (task 28: the generator took its spot).
+    ...vent("left", -1.85, 2.6),
     // Drain pipes and a pipe run on the alley side.
     drainPipe("back", -halfW + 0.5),
     drainPipe("back", halfW - 0.5),
@@ -857,8 +877,8 @@ export function centreUv(rect: PixelRect): [number, number] {
  * Merged vertex data for the whole layout. Boxes keep `boxesGeometryData`'s world UVs
  * (tiles of `tileM`); beams get four side faces each (their ends are too thin to see);
  * faces are quads mapped to their atlas rectangle. Puddles map the whole puddle patch on
- * every face, lamp bulbs the middle of the lamp patch; everything else samples the black
- * patch.
+ * every face, lamp bulbs the middle of the lamp patch, the generator's slits the middle of
+ * the glow patch; everything else samples the black patch.
  */
 export function detailGeometryData(
   layout: DetailLayout,
@@ -878,6 +898,7 @@ export function detailGeometryData(
 
   const dark = centreUv(DETAIL_TEXTURE.rects.dark);
   const lamp = centreUv(DETAIL_TEXTURE.rects.lamp);
+  const glow = centreUv(DETAIL_TEXTURE.rects.glow);
   const puddle = detailUv(DETAIL_TEXTURE.rects.puddle);
   const puddleCorners: [number, number][] = [
     [puddle.uMin, puddle.vMin],
@@ -899,7 +920,9 @@ export function detailGeometryData(
             ? puddleCorners[corner]
             : part.kind === "lamp"
               ? lamp
-              : dark;
+              : part.kind === "glow"
+                ? glow
+                : dark;
         atlasUvs.push(...(uv ?? dark));
         shade(part.kind);
       }

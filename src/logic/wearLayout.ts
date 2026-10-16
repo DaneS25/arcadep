@@ -87,7 +87,7 @@ export function detailWearAttributes(
   );
   const stickers: number[] = [];
   for (const part of layout.boxes) {
-    const on = STICKER_KINDS.includes(part.kind) ? 1 : 0;
+    const on = !part.noStickers && STICKER_KINDS.includes(part.kind) ? 1 : 0;
     for (let i = 0; i < 24; i += 1) stickers.push(on);
   }
   while (stickers.length < vertexCount) {
