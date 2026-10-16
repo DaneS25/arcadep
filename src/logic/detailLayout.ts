@@ -42,13 +42,22 @@ export type DetailKind =
   /** The generator's slits of cold light (task 28): glow evenly with the atlas's glow patch. */
   | "glow"
   /** The overhead wires (task 29): a shade lighter than the old cables, so they read at night. */
-  | "wire";
+  | "wire"
+  /** A wire tap's status LED (task 33): glows with its colour's atlas patch. */
+  | "led";
+
+/** The palette colours a tap's LED glows in (task 33). */
+export type LedColor = "red" | "cyan" | "purple";
 
 export type DetailBox = {
   readonly kind: DetailKind;
   readonly box: Box;
   /** Keeps stickers off a box whose kind would get them (the generator, task 28 review). */
   readonly noStickers?: boolean;
+  /** An LED's colour (`led` kind only). */
+  readonly led?: LedColor;
+  /** An LED that blinks (task 33), so the scene swaps its atlas patch now and then. */
+  readonly blink?: true;
 };
 
 /** A thin square bar between two points, for cables and braces that don't run along an axis. */
@@ -110,6 +119,10 @@ export const DETAIL_TEXTURE = {
     glow: { x: 768, y: 384, width: 128, height: 128 },
     /** The overhead wires' faint sheen (task 29), so they catch the neon in the dark. */
     wireSheen: { x: 896, y: 384, width: 128, height: 128 },
+    /** The wire taps' LEDs (task 33), in a free corner beside the window cells. */
+    ledRed: { x: 384, y: 704, width: 64, height: 64 },
+    ledCyan: { x: 448, y: 704, width: 64, height: 64 },
+    ledPurple: { x: 512, y: 704, width: 64, height: 64 },
   },
 } as const satisfies {
   widthPx: number;
@@ -122,7 +135,10 @@ export const DETAIL_TEXTURE = {
     | "puddle"
     | "lamp"
     | "glow"
-    | "wireSheen",
+    | "wireSheen"
+    | "ledRed"
+    | "ledCyan"
+    | "ledPurple",
     PixelRect
   >;
 };
@@ -852,6 +868,11 @@ export function detailGeometryData(
   const lamp = centreUv(DETAIL_TEXTURE.rects.lamp);
   const glow = centreUv(DETAIL_TEXTURE.rects.glow);
   const wireSheen = centreUv(DETAIL_TEXTURE.rects.wireSheen);
+  const leds = {
+    red: centreUv(DETAIL_TEXTURE.rects.ledRed),
+    cyan: centreUv(DETAIL_TEXTURE.rects.ledCyan),
+    purple: centreUv(DETAIL_TEXTURE.rects.ledPurple),
+  };
   const puddle = detailUv(DETAIL_TEXTURE.rects.puddle);
   const puddleCorners: [number, number][] = [
     [puddle.uMin, puddle.vMin],
@@ -875,7 +896,9 @@ export function detailGeometryData(
               ? lamp
               : part.kind === "glow"
                 ? glow
-                : dark;
+                : part.kind === "led"
+                  ? leds[part.led ?? "red"]
+                  : dark;
         atlasUvs.push(...(uv ?? dark));
         shade(part.kind);
       }
