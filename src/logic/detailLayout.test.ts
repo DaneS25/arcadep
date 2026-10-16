@@ -8,6 +8,8 @@ import {
   type Box,
   type Vec3,
 } from "./buildingLayout";
+import { signage } from "../content/signage";
+import { DETAILS_LOOK } from "./lookConfig";
 import { CAMERA } from "./cameraOrbit";
 import { withDucts } from "./ductLayout";
 import { neonStrips } from "./neonLayout";
@@ -126,6 +128,17 @@ describe("detailLayout", () => {
     expect(new Set(layout.faces.map((f) => f.sign))).toEqual(
       new Set(["rooftop", "cafe", "arcade"]),
     );
+  });
+
+  it("hangs ARCADE on the front over the shop and COFFEE on the right, each in its own colours (task 31)", () => {
+    const face = (sign: string) => layout.faces.find((f) => f.sign === sign);
+    // The front faces +z, the right +x.
+    expect(face("arcade")?.quad.normal.z).toBeCloseTo(1);
+    expect(face("cafe")?.quad.normal.x).toBeCloseTo(1);
+    expect(signage.arcade).toBe("ARCADE");
+    expect(signage.cafe).toBe("COFFEE");
+    expect(DETAILS_LOOK.signColors.arcade).toBe("purple");
+    expect(DETAILS_LOOK.signColors.cafe).toBe("cyan");
   });
 
   it("stands nothing out past the kerb: every prop, cable and tube stays over the pavement", () => {

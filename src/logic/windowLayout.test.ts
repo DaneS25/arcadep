@@ -301,13 +301,13 @@ describe("wallOpenings", () => {
     },
   );
 
-  it("keeps the ARCADE sign out of the right side's view of the door terminal", () => {
+  it("keeps the COFFEE sign out of the right side's view of the door terminal", () => {
     const terminal = interactionSpots().find((s) => s.side === "right");
     if (terminal === undefined) throw new Error("no terminal spot");
     const plate = detailLayout().boxes.find((part) =>
-      isHangingSignPlate(onWall(part.box, "right"), ["arcade"]),
+      isHangingSignPlate(onWall(part.box, "right"), ["cafe"]),
     );
-    if (plate === undefined) throw new Error("no arcade plate");
+    if (plate === undefined) throw new Error("no COFFEE plate");
     const box = plate.box;
     // Well above the terminal on the wall.
     expect(box.centre.y - box.size.y / 2).toBeGreaterThan(

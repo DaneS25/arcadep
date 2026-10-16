@@ -149,9 +149,9 @@ export type WireStrand = {
   readonly points: readonly Vec3[];
 };
 
-/** Out from the wall on the front: behind the café sign's face (0.42 m) and the cabinet. */
+/** Out from the wall on the front: behind the ARCADE sign's face (0.42 m) and the cabinet. */
 const F = 0.25;
-/** Out on the right: behind the terminal's screen (0.2 m) and the arcade sign's face. */
+/** Out on the right: behind the terminal's screen (0.2 m) and the COFFEE sign's face. */
 const R = 0.12;
 /** Out on the left, under the skill signs: past the drain pipe (0.32 m). */
 const L = 0.45;

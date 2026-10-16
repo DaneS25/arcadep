@@ -3,9 +3,9 @@
  * changes with the profile. Short words read best; long ones are shrunk to fit their sign.
  */
 export type Signage = {
-  /** Over the storefront on the front, beside the arcade cabinet. */
+  /** On the first floor of the right side, seen from the street corner (task 31). */
   readonly cafe: string;
-  /** On the first floor of the right side, seen from the street corner. */
+  /** Over the storefront on the front, above the arcade cabinet (task 31). */
   readonly arcade: string;
 };
 
