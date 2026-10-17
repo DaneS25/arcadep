@@ -3,6 +3,7 @@ import { pointOnSide, wallOpenings } from "../src/logic/buildingLayout";
 import { backLampPosition, steamVents } from "../src/logic/ductLayout";
 import { generatorPlugs } from "../src/logic/generatorLayout";
 import { smallLights } from "../src/logic/lightLayout";
+import { STREET_LAMPS, lampLightPosition } from "../src/logic/streetLampLayout";
 import { tapDevices } from "../src/logic/tapLayout";
 import { clipStats, screenPointFromSide } from "./helpers";
 
@@ -509,6 +510,56 @@ test.describe("camera navigation", () => {
         height: corner,
       });
       expect(max).toBeLessThan(40);
+    }
+  });
+
+  test("the street lamps light the front and back, add no draw call and hold steady under reduced motion", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: "test-results/lamps-start.png" });
+    const cdp = await page.context().newCDPSession(page);
+    // The keys go round: right, back, left, front. The lamps stand in front of the back
+    // and front walls.
+    for (const side of ["right", "back", "left", "front"] as const) {
+      await page.keyboard.press("ArrowRight");
+      await expect(canvas).toHaveAttribute("data-camera-side", side);
+      if (side !== "back" && side !== "front") continue;
+      await page.waitForTimeout(300);
+      const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+      expect(drawCalls).toBeGreaterThan(0);
+      expect(drawCalls).toBeLessThanOrEqual(12);
+      const lamp = STREET_LAMPS.find((l) => l.id === `lamp-${side}`);
+      if (lamp === undefined) throw new Error(`no lamp at the ${side}`);
+      const at = screenPointFromSide(side, lampLightPosition(lamp), box);
+      const clip = {
+        x: Math.max(box.x, Math.round(at.x - 120)),
+        y: Math.max(box.y, Math.round(at.y - 60)),
+        width: 240,
+        height: 200,
+      };
+      const first = await clipStats(cdp, page, clip);
+      console.log(`lamp-${side}: warm ${first.warmShare.toFixed(3)}`);
+      // The lamp lights its wall in warm orange (the one warm exception); without the lamps
+      // these clips have next to no warm pixels.
+      expect(first.warmShare).toBeGreaterThan(0.005);
+      for (let i = 0; i < 4; i += 1) {
+        await page.waitForTimeout(200);
+        expect((await clipStats(cdp, page, clip)).png).toBe(first.png);
+      }
+      await page.screenshot({ path: `test-results/lamps-${side}.png` });
+      await page.screenshot({
+        path: `test-results/lamps-${side}-close.png`,
+        clip,
+      });
     }
   });
 

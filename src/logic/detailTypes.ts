@@ -31,9 +31,10 @@ export type DetailKind =
 
 /**
  * What a glowing box (an LED or a small light) glows with: the palette's red, cyan or
- * purple (the taps' LEDs, task 33), or a small light's cold bulb or cold tube (task 34).
+ * purple (the taps' LEDs, task 33), a small light's cold bulb or cold tube (task 34), or a
+ * street lamp's warm orange bulb (task 40, the one warm exception).
  */
-export type GlowColor = "red" | "cyan" | "purple" | "bulb" | "tube";
+export type GlowColor = "red" | "cyan" | "purple" | "bulb" | "tube" | "street";
 
 export type DetailBox = {
   readonly kind: DetailKind;

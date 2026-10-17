@@ -367,6 +367,21 @@ export const LIGHTS_LOOK = {
   exit: "#c42433",
 } as const;
 
+/**
+ * The two street lamps (task 40): warm orange incandescent light, the one exception to the
+ * no-yellow/amber rule (user, 2026-10-18: these two lamps only). Each point light lights
+ * its wall, the corner beside it and the pavement below, but stays under the neon's
+ * lights, so the red and purple still lead. The bulb, in the details atlas, is a pale warm
+ * orange just over the bloom threshold, for a soft glow. Steady, never flickering.
+ */
+export const STREET_LAMP_LOOK = {
+  color: "#ff8a3c",
+  intensity: 24,
+  distanceM: 10,
+  decay: 2,
+  bulb: "#ffcc99",
+} as const;
+
 export const TONE_MAPPING = {
   exposure: 0.9,
 } as const;

@@ -6,8 +6,14 @@ import {
   type Light,
 } from "three";
 import { backLampPosition } from "@/logic/ductLayout";
-import { AMBIENT_LIGHTS, LAMP_LOOK, NEON_LIGHTS } from "@/logic/lookConfig";
+import {
+  AMBIENT_LIGHTS,
+  LAMP_LOOK,
+  NEON_LIGHTS,
+  STREET_LAMP_LOOK,
+} from "@/logic/lookConfig";
 import { PALETTE } from "@/logic/palette";
+import { STREET_LAMPS, lampLightPosition } from "@/logic/streetLampLayout";
 
 export type Lights = {
   object: Group;
@@ -16,7 +22,8 @@ export type Lights = {
 
 /**
  * Dim sky fill and moon, a coloured point light beside each group of neon, and the dim
- * cold lamp over the back door (task 23). No shadows.
+ * cold lamp over the back door (task 23), and a warm orange light under each street lamp's
+ * head (task 40, steady). No shadows.
  */
 export function createLights(): Lights {
   const { hemisphere, moon } = AMBIENT_LIGHTS;
@@ -49,7 +56,20 @@ export function createLights(): Lights {
   const at = backLampPosition();
   lamp.position.set(at.x, at.y, at.z);
 
-  const all: Light[] = [fill, moonLight, ...points, lamp];
+  const street = STREET_LAMPS.map((spec) => {
+    const light = new PointLight(
+      STREET_LAMP_LOOK.color,
+      STREET_LAMP_LOOK.intensity,
+      STREET_LAMP_LOOK.distanceM,
+      STREET_LAMP_LOOK.decay,
+    );
+    light.name = spec.id;
+    const at = lampLightPosition(spec);
+    light.position.set(at.x, at.y, at.z);
+    return light;
+  });
+
+  const all: Light[] = [fill, moonLight, ...points, lamp, ...street];
   const group = new Group();
   group.name = "lights";
   group.add(...all);
