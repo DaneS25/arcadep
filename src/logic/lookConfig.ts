@@ -8,7 +8,7 @@ import { PALETTE, type PaletteToken } from "./palette";
  */
 
 /** The merged surfaces of the street corner. */
-export type SurfaceId = "wall" | "trim" | "sidewalk" | "street";
+export type SurfaceId = "wall" | "trim" | "sidewalk" | "ground";
 
 export type SurfaceLook = {
   /** ambientCG material used when its colour map is present. */
@@ -23,6 +23,8 @@ export type SurfaceLook = {
   readonly metalness: number;
   /** How strongly the neon environment map shows in the surface. */
   readonly envMapIntensity: number;
+  /** Only the colour map, no normal or roughness map: plain, and cheaper to shade. */
+  readonly colorMapOnly?: boolean;
 };
 
 export const SURFACES: Readonly<Record<SurfaceId, SurfaceLook>> = {
@@ -53,16 +55,18 @@ export const SURFACES: Readonly<Record<SurfaceId, SurfaceLook>> = {
     metalness: 0.1,
     envMapIntensity: 0.8,
   },
-  // Wet asphalt: smooth and slightly metallic so it mirrors the neon environment and the
-  // coloured lights, without a second render pass.
-  street: {
-    slot: "asphalt",
+  // Plain grey concrete running on past the kerb into the dark (task 38, was the wet
+  // asphalt street): rough and matt, colour map only, no brighter than the trim, so it reads
+  // as ground without pulling the eye.
+  ground: {
+    slot: "concrete",
     fallback: "ground",
-    tint: "#6a6a74",
-    tileM: 4,
-    roughness: 0.28,
-    metalness: 0.45,
-    envMapIntensity: 1.6,
+    tint: "#8a8a90",
+    tileM: 3,
+    roughness: 0.9,
+    metalness: 0,
+    envMapIntensity: 0.25,
+    colorMapOnly: true,
   },
 };
 
@@ -84,7 +88,8 @@ export type SurfaceMaterialParams<T> = {
 
 /**
  * What a surface's material is set to: the tinted texture maps when the colour map loaded,
- * else the plain fallback colour with no maps at all.
+ * else the plain fallback colour with no maps at all. A `colorMapOnly` surface never takes
+ * the normal or roughness map.
  */
 export function surfaceMaterialParams<T>(
   look: SurfaceLook,
@@ -108,8 +113,8 @@ export function surfaceMaterialParams<T>(
     ...common,
     color: look.tint,
     map: maps.color,
-    normalMap: maps.normal,
-    roughnessMap: maps.roughness,
+    normalMap: look.colorMapOnly === true ? null : maps.normal,
+    roughnessMap: look.colorMapOnly === true ? null : maps.roughness,
   };
 }
 

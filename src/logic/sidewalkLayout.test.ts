@@ -11,8 +11,9 @@ import {
 } from "./buildingLayout";
 import { CAMERA, orbitPosition } from "./cameraOrbit";
 import { detailLayout } from "./detailLayout";
+import { SKY } from "./nightSky";
 import {
-  EDGE_FADE,
+  GROUND,
   SIDEWALK,
   SIDEWALK_GRIME,
   binBags,
@@ -29,8 +30,8 @@ import {
   sidewalkGrimeUvs,
   sidewalkPixel,
   sidewalkProps,
-  streetBox,
-  streetFade,
+  groundBox,
+  groundFade,
   withSidewalk,
 } from "./sidewalkLayout";
 
@@ -46,7 +47,7 @@ const within = (r: Rect, outer: Rect, margin = 0): boolean =>
 
 const bottom = (box: Box): number => box.centre.y - box.size.y / 2;
 
-describe("the street past the kerb", () => {
+describe("the ground past the kerb", () => {
   it("measures 0 on the pavement and the distance past its edge outside it", () => {
     expect(edgeDistanceM(0, 0)).toBe(0);
     expect(edgeDistanceM(walk.maxX, 0)).toBe(0);
@@ -55,39 +56,54 @@ describe("the street past the kerb", () => {
     expect(edgeDistanceM(walk.maxX + 3, walk.maxZ + 4)).toBeCloseTo(5);
   });
 
-  it("is lit by the kerb and fades smoothly to black by the fade's end", () => {
-    expect(streetFade(walk.maxX + EDGE_FADE.startM, 0)).toBe(1);
-    expect(streetFade(walk.maxX + 0.1, 0)).toBeGreaterThan(0.9);
-    expect(streetFade(walk.maxX + EDGE_FADE.endM, 0)).toBe(0);
-    expect(streetFade(walk.maxX + 20, 0)).toBe(0);
+  it("is lit past the kerb and fades smoothly into the dark by the fade's end", () => {
+    expect(groundFade(walk.maxX + GROUND.fadeStartM, 0)).toBe(1);
+    // Well past the footpath it is still there: over half its light 15 m out.
+    expect(groundFade(walk.maxX + 15, 0)).toBeGreaterThan(0.5);
+    expect(groundFade(walk.maxX + GROUND.fadeEndM, 0)).toBe(0);
+    expect(groundFade(walk.maxX + 200, 0)).toBe(0);
     let last = 1;
-    for (let d = 0; d <= EDGE_FADE.endM; d += 0.1) {
-      const f = streetFade(0, walk.maxZ + d);
+    for (let d = 0; d <= GROUND.fadeEndM; d += 0.5) {
+      const f = groundFade(0, walk.maxZ + d);
       expect(f).toBeLessThanOrEqual(last + 1e-12);
       last = f;
     }
   });
 
-  it("ends the street slab where it is already black, top at y = 0", () => {
-    const box = streetBox();
+  it("fades gently: no step of more than 6% a metre", () => {
+    for (let d = 0; d < GROUND.fadeEndM; d += 0.25) {
+      const step =
+        groundFade(walk.maxX + d, 0) - groundFade(walk.maxX + d + 1, 0);
+      expect(step).toBeLessThan(0.06);
+    }
+  });
+
+  it("ends the ground slab where it is already black, top at y = 0, inside the sky", () => {
+    const box = groundBox();
     expect(box.centre.y + box.size.y / 2).toBeCloseTo(0);
     const r = groundRect(box);
-    expect(EDGE_FADE.slabM).toBeGreaterThanOrEqual(EDGE_FADE.endM);
+    expect(GROUND.slabM).toBeGreaterThan(GROUND.fadeEndM);
     for (const x of [r.minX, r.maxX])
-      for (const z of [r.minZ, r.maxZ]) expect(streetFade(x, z)).toBe(0);
+      for (const z of [r.minZ, r.maxZ]) {
+        expect(groundFade(x, z)).toBe(0);
+        expect(Math.hypot(x, z)).toBeLessThan(SKY.radiusM);
+      }
     expect(within(walk, r)).toBe(true);
   });
 
-  it("is black under every camera position at the farthest zoom", () => {
-    // The camera never hangs over lit street: every orbit's ground point is past the fade
-    // or over the pavement, so nothing lit sits behind the building in a view.
+  it("has faded out before the slab's edge from every orbit at the farthest zoom", () => {
+    // The camera sees the slab's edge only far behind the fade end: each orbit's ground
+    // point still lies inside the slab, short of where the fade is complete.
+    const r = groundRect(groundBox());
     for (let a = 0; a < 360; a += 15) {
       const p = orbitPosition({
         azimuthRad: (a * Math.PI) / 180,
         polarRad: CAMERA.maxPolarRad,
         distanceM: CAMERA.maxDistanceM,
       });
-      expect(streetFade(p.x, p.z)).toBe(0);
+      expect(p.x > r.minX && p.x < r.maxX && p.z > r.minZ && p.z < r.maxZ).toBe(
+        true,
+      );
     }
   });
 });

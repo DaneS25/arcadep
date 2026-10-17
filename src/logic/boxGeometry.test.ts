@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOX_FACES, boxesGeometryData } from "./boxGeometry";
+import { BOX_FACES, boxesGeometryData, mergeGeometryData } from "./boxGeometry";
 import type { Box, Vec3 } from "./buildingLayout";
 
 const unit: Box = { centre: { x: 0, y: 0, z: 0 }, size: { x: 1, y: 1, z: 1 } };
@@ -103,5 +103,25 @@ describe("boxesGeometryData", () => {
   it("rejects a tile size that is not positive", () => {
     expect(() => boxesGeometryData([unit], 0)).toThrow(RangeError);
     expect(() => boxesGeometryData([unit], Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe("mergeGeometryData", () => {
+  it("keeps both parts and moves the second part's indices past the first's vertices", () => {
+    const a = boxesGeometryData(
+      [{ centre: { x: 0, y: 0, z: 0 }, size: { x: 1, y: 1, z: 1 } }],
+      1,
+    );
+    const b = boxesGeometryData(
+      [{ centre: { x: 5, y: 0, z: 0 }, size: { x: 2, y: 1, z: 1 } }],
+      1,
+    );
+    const m = mergeGeometryData(a, b);
+    expect(m.positions).toEqual([...a.positions, ...b.positions]);
+    expect(m.normals.length).toBe(a.normals.length + b.normals.length);
+    expect(m.uvs.length).toBe(a.uvs.length + b.uvs.length);
+    expect(m.indices.slice(0, a.indices.length)).toEqual(a.indices);
+    expect(m.indices[a.indices.length]).toBe((b.indices[0] ?? 0) + 24);
+    expect(Math.max(...m.indices)).toBe(m.positions.length / 3 - 1);
   });
 });
