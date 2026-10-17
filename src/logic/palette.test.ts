@@ -14,6 +14,8 @@ describe("paletteCssVars", () => {
       { name: "--color-text", value: PALETTE.text },
       { name: "--color-muted", value: PALETTE.muted },
       { name: "--color-ground", value: PALETTE.ground },
+      { name: "--color-sky", value: PALETTE.sky },
+      { name: "--color-aurora", value: PALETTE.aurora },
       { name: "--color-wall", value: PALETTE.wall },
       { name: "--color-trim", value: PALETTE.trim },
       { name: "--color-sidewalk", value: PALETTE.sidewalk },

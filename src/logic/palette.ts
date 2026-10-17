@@ -22,8 +22,12 @@ export const PALETTE = {
   text: "#e6e6ee",
   /** Secondary text (captions, details). */
   muted: "#b4b4c2",
-  /** Street surface before textures arrive. */
-  ground: "#16161c",
+  /** The plain concrete ground round the pavement before textures arrive (task 38). */
+  ground: "#2a2a2e",
+  /** The night sky overhead (task 38); it blends down to `base` at the horizon. */
+  sky: "#0a0c1e",
+  /** Cold green at the foot of the aurora's curtains (task 38); their tops are `purple`. */
+  aurora: "#2ee6a0",
   /** Building walls before textures arrive (blockout, task 5). */
   wall: "#2b2b35",
   /** Floor bands, roof and parapets. */

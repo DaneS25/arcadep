@@ -6,7 +6,11 @@ import {
   type Texture,
 } from "three";
 import type { TextureSet } from "@/logic/assetFallback";
-import { boxesGeometryData, type GeometryData } from "@/logic/boxGeometry";
+import {
+  boxesGeometryData,
+  mergeGeometryData,
+  type GeometryData,
+} from "@/logic/boxGeometry";
 import type { Box } from "@/logic/buildingLayout";
 import {
   SURFACES,
@@ -33,6 +37,9 @@ export type Surface = {
  * surface is one draw call with one material. Starts in its plain colour. With `grime`
  * (the wall grime atlas, task 22), each face also reads its side's grime by where it is;
  * `grimeUvsOf` maps the vertices into another grime texture (the pavement's, task 24).
+ * With `extra`, more vertex data joins the same mesh, marked 1 in a float attribute named
+ * `extra.flag` (the boxes are 0), so the material's shader can draw it its own way (the
+ * night sky in the ground's mesh, task 38) without another draw call.
  */
 export function createSurface(
   id: SurfaceId,
@@ -40,9 +47,12 @@ export function createSurface(
   name: string,
   grime?: GrimeTextures,
   grimeUvsOf: (data: GeometryData) => number[] = grimeUvs,
+  extra?: { readonly data: GeometryData; readonly flag: string },
 ): Surface {
   const look = SURFACES[id];
-  const data = boxesGeometryData(boxes, look.tileM);
+  const boxData = boxesGeometryData(boxes, look.tileM);
+  const data =
+    extra === undefined ? boxData : mergeGeometryData(boxData, extra.data);
   const geometry = new BufferGeometry();
   geometry.setAttribute(
     "position",
@@ -51,6 +61,13 @@ export function createSurface(
   geometry.setAttribute("normal", new Float32BufferAttribute(data.normals, 3));
   geometry.setAttribute("uv", new Float32BufferAttribute(data.uvs, 2));
   geometry.setIndex(data.indices);
+  if (extra !== undefined) {
+    const boxVertices = boxData.positions.length / 3;
+    const flags = Array.from({ length: data.positions.length / 3 }, (_, i) =>
+      i < boxVertices ? 0 : 1,
+    );
+    geometry.setAttribute(extra.flag, new Float32BufferAttribute(flags, 1));
+  }
   geometry.computeBoundingSphere();
 
   const material = new MeshStandardMaterial();

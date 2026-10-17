@@ -80,3 +80,17 @@ export function boxesGeometryData(
   }
   return { positions, normals, uvs, indices };
 }
+
+/** `a` then `b` in one mesh's data (`b`'s indices moved past `a`'s vertices). */
+export function mergeGeometryData(
+  a: GeometryData,
+  b: GeometryData,
+): GeometryData {
+  const offset = a.positions.length / 3;
+  return {
+    positions: [...a.positions, ...b.positions],
+    normals: [...a.normals, ...b.normals],
+    uvs: [...a.uvs, ...b.uvs],
+    indices: [...a.indices, ...b.indices.map((i) => i + offset)],
+  };
+}

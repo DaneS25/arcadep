@@ -26,7 +26,7 @@ import {
 import { PALETTE } from "./palette";
 
 describe("surfaceMaterialParams", () => {
-  const look = SURFACES.street;
+  const look = SURFACES.ground;
 
   it("uses the plain fallback colour and no maps when the colour map is missing", () => {
     const params = surfaceMaterialParams(look, {
@@ -45,13 +45,25 @@ describe("surfaceMaterialParams", () => {
     });
   });
 
-  it("uses the tinted maps when the colour map loaded", () => {
+  it("keeps a colour-map-only surface (the ground) plain: no normal or roughness map", () => {
+    expect(look.colorMapOnly).toBe(true);
     const params = surfaceMaterialParams(look, {
+      color: "c",
+      normal: "n",
+      roughness: "r",
+    });
+    expect(params.map).toBe("c");
+    expect(params.normalMap).toBeNull();
+    expect(params.roughnessMap).toBeNull();
+  });
+
+  it("uses the tinted maps when the colour map loaded", () => {
+    const params = surfaceMaterialParams(SURFACES.sidewalk, {
       color: "c",
       normal: "n",
       roughness: null,
     });
-    expect(params.color).toBe(look.tint);
+    expect(params.color).toBe(SURFACES.sidewalk.tint);
     expect(params.map).toBe("c");
     expect(params.normalMap).toBe("n");
     expect(params.roughnessMap).toBeNull();
@@ -70,10 +82,15 @@ describe("SURFACES", () => {
     }
   });
 
-  it("makes the street the wettest (smoothest) surface", () => {
-    const { street, ...rest } = SURFACES;
-    for (const look of Object.values(rest))
-      expect(street.roughness).toBeLessThan(look.roughness);
+  it("keeps the ground plain concrete: matt, not metallic, no brighter than the trim", () => {
+    const { ground, sidewalk, trim } = SURFACES;
+    expect(ground.slot).toBe("concrete");
+    expect(ground.metalness).toBe(0);
+    expect(ground.roughness).toBeGreaterThanOrEqual(0.85);
+    expect(ground.envMapIntensity).toBeLessThan(sidewalk.envMapIntensity);
+    expect(bloomLuma(ground.tint) ?? 1).toBeLessThanOrEqual(
+      bloomLuma(trim.tint) ?? 0,
+    );
   });
 });
 
@@ -89,9 +106,9 @@ describe("fogFactor", () => {
     expect(fogFactor(0.1, -10)).toBe(0);
   });
 
-  it("leaves the building readable from the farthest camera but hides the street's edge", () => {
+  it("leaves the building readable from the farthest camera but fogs the far ground", () => {
     expect(fogFactor(FOG.density, CAMERA.maxDistanceM)).toBeLessThan(0.5);
-    // The street ends 40 m from the centre, so from the farthest camera its edge is mostly fogged.
+    // Ground 40 m past the centre, where it has faded out, is mostly fogged from the farthest camera too.
     expect(fogFactor(FOG.density, CAMERA.maxDistanceM + 40)).toBeGreaterThan(
       0.6,
     );

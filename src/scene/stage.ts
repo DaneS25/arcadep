@@ -18,7 +18,7 @@ export type StageContent = SpotsContent & { readonly signs: SignTexts };
 export type Stage = {
   scene: Scene;
   building: Building;
-  /** Puts the loaded ambientCG maps on the street and building (plain colours stay for missing ones). */
+  /** Puts the loaded ambientCG maps on the ground and building (plain colours stay for missing ones). */
   applyTextures(
     textures: Readonly<Record<TextureSlot, TextureSet<Texture>>>,
   ): void;
@@ -27,8 +27,8 @@ export type Stage = {
   /** Lights up one side's prop (hovered or focused), or none. */
   setHighlighted(id: SpotMarker["id"] | undefined): void;
   /**
-   * Moves animated props and the fog wisps on by `dtMs` (nothing blinks and the wisps hold
-   * still under reduced motion), and turns the wisps to face `camera`.
+   * Moves animated props, the fog wisps and the aurora on by `dtMs` (nothing blinks and the
+   * wisps and aurora hold still under reduced motion), and turns the wisps to face `camera`.
    */
   update(dtMs: number, reducedMotion: boolean, camera: Camera): void;
   /** Redraws canvas text (signs, screens) once the fonts have loaded. */
@@ -37,8 +37,9 @@ export type Stage = {
 };
 
 /**
- * The night street corner: fog and drifting wisps (task 15), lights, the wet street, the
- * building, its neon and its detail props (task 14).
+ * The night street corner: fog and drifting wisps (task 15), lights, the concrete ground
+ * and the night sky with its aurora (task 38, one mesh), the building, its neon and its
+ * detail props (task 14).
  */
 export function createStage(content: StageContent): Stage {
   const scene = new Scene();
@@ -81,10 +82,11 @@ export function createStage(content: StageContent): Stage {
       details.setSignPlatesLit(id === "spot-left");
     },
     update(dtMs, reducedMotion, camera) {
-      // The cabinet's attract screen, the signs' and windows' flicker and the fog's drift.
+      // The cabinet's attract screen, the signs' and windows' flicker, the fog's drift and the aurora.
       building.spots.update(dtMs, reducedMotion);
       details.update(dtMs, reducedMotion);
       wisps.update(dtMs, reducedMotion, camera);
+      ground.update(dtMs, reducedMotion);
     },
     redrawText() {
       building.spots.redrawText();

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { contact } from "../src/content/contact";
 import { profile } from "../src/content/profile";
 import { projects } from "../src/content/projects";
@@ -548,7 +548,7 @@ test.describe("camera navigation", () => {
     });
   });
 
-  test("the pavement runs round the building within the draw-call budget and the street fades to black past it", async ({
+  test("the pavement runs round the building within the draw-call budget and the ground fades into the dark past it", async ({
     page,
   }) => {
     // Several full renders and a zoomed-out orbit render slowly in headless Chromium.
@@ -561,18 +561,44 @@ test.describe("camera navigation", () => {
     if (box === null) throw new Error("canvas has no box");
     await page.mouse.move(box.x + 4, box.y + 4);
     // The kerbs join the pavement's mesh and the drains, bags and litter the details mesh
-    // (task 24), so the budget holds from every side.
+    // (task 24); the ground and the night sky share one mesh (task 38), so the budget holds
+    // from every side.
     const budget = async (): Promise<void> => {
       const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
       expect(drawCalls).toBeGreaterThan(0);
       expect(drawCalls).toBeLessThanOrEqual(12);
     };
-    for (const side of ["right", "back", "left", "front"]) {
+    const cdp = await page.context().newCDPSession(page);
+    const size = 40;
+    for (const side of ["right", "back", "left", "front"] as const) {
       await page.keyboard.press("ArrowRight");
       await expect(canvas).toHaveAttribute("data-camera-side", side);
       await page.waitForTimeout(300);
       await budget();
       await page.screenshot({ path: `test-results/sidewalk-${side}.png` });
+
+      // Concrete ground runs on past the kerb (task 38): a few metres past the pavement,
+      // towards the camera, it is lit, well above the background, while up at the top of
+      // the frame, far past the fade, it has gone into the dark.
+      const near = screenPointFromSide(side, pointOnSide(side, 0, 0, 9), box);
+      const lit = await clipStats(cdp, page, {
+        x: near.x - size / 2,
+        y: near.y - size / 2,
+        width: size,
+        height: size,
+      });
+      const far = await clipStats(cdp, page, {
+        x: box.x + 2,
+        y: box.y + 2,
+        width: 60,
+        height: 60,
+      });
+      console.log(
+        `ground from the ${side}: near mean ${lit.mean.toFixed(1)}, far mean ${far.mean.toFixed(1)} max ${String(far.max)}`,
+      );
+      expect(lit.mean).toBeGreaterThan(8);
+      expect(lit.mean).toBeGreaterThan(far.mean + 4);
+      expect(far.max).toBeLessThan(40);
     }
 
     // High and far: zoom right out and swing up over the corner.
@@ -588,50 +614,68 @@ test.describe("camera navigation", () => {
     await budget();
     await page.screenshot({ path: "test-results/sidewalk-high.png" });
 
-    // Past the pavement the frame is black: the brightest pixel in each corner of the
-    // high view (all street past the fade) stays near the base colour.
-    const cdp = await page.context().newCDPSession(page);
-    const size = 60;
+    // The ground's fade and the fog keep the far corners of the high view dark: the
+    // brightest pixel in each stays near the base colour.
+    const corner = 60;
     const corners = [
       [box.x + 2, box.y + 2],
-      [box.x + box.width - size - 2, box.y + 2],
-      [box.x + 2, box.y + box.height - size - 2],
-      [box.x + box.width - size - 2, box.y + box.height - size - 2],
+      [box.x + box.width - corner - 2, box.y + 2],
+      [box.x + 2, box.y + box.height - corner - 2],
+      [box.x + box.width - corner - 2, box.y + box.height - corner - 2],
     ] as const;
     for (const [x, y] of corners) {
-      const { data } = await cdp.send("Page.captureScreenshot", {
-        format: "png",
-        clip: {
-          x: Math.round(x),
-          y: Math.round(y),
-          width: size,
-          height: size,
-          scale: 1,
-        },
+      const { max } = await clipStats(cdp, page, {
+        x,
+        y,
+        width: corner,
+        height: corner,
       });
-      const brightest = await page.evaluate(async (png) => {
-        const img = new Image();
-        img.src = `data:image/png;base64,${png}`;
-        await img.decode();
-        const c = document.createElement("canvas");
-        c.width = img.width;
-        c.height = img.height;
-        const ctx = c.getContext("2d");
-        if (ctx === null) return 255;
-        ctx.drawImage(img, 0, 0);
-        const pixels = ctx.getImageData(0, 0, c.width, c.height).data;
-        let max = 0;
-        for (let i = 0; i < pixels.length; i += 4)
-          max = Math.max(
-            max,
-            pixels[i] ?? 0,
-            pixels[i + 1] ?? 0,
-            pixels[i + 2] ?? 0,
-          );
-        return max;
-      }, data);
-      expect(brightest).toBeLessThan(40);
+      expect(max).toBeLessThan(40);
     }
+  });
+
+  test("the night sky's aurora shows from a low orbit in cold colours and holds still under reduced motion", async ({
+    page,
+  }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("canvas has no box");
+    // Swing the camera right down, so the sky fills the top of the frame.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + 20, { steps: 8 });
+    await page.mouse.up();
+    await page.mouse.move(box.x + 4, box.y + box.height - 4);
+    await page.waitForTimeout(600);
+    const drawCalls = Number(await canvas.getAttribute("data-draw-calls"));
+    expect(drawCalls).toBeGreaterThan(0);
+    expect(drawCalls).toBeLessThanOrEqual(12);
+    await page.screenshot({ path: "test-results/sky-low.png" });
+
+    const cdp = await page.context().newCDPSession(page);
+    const band = {
+      x: box.x + 10,
+      y: box.y + 10,
+      width: box.width - 20,
+      height: box.height * 0.3,
+    };
+    const first = await clipStats(cdp, page, band);
+    console.log(
+      `sky: max ${String(first.max)}, warm ${first.warmShare.toFixed(4)}, cold ${first.coldShare.toFixed(3)}`,
+    );
+    // Part of the sky is lit by the aurora, never yellow or amber: the lit pixels are
+    // green or purple, not red and green over blue.
+    expect(first.max).toBeGreaterThan(30);
+    expect(first.warmShare).toBeLessThan(0.01);
+    expect(first.coldShare).toBeGreaterThan(0.02);
+    // Under reduced motion the aurora is a still picture.
+    await page.waitForTimeout(1500);
+    const second = await clipStats(cdp, page, band);
+    expect(second.png).toBe(first.png);
   });
 
   test("dragging with the mouse takes the camera off the side views", async ({
@@ -656,6 +700,79 @@ test.describe("camera navigation", () => {
 });
 
 type Box = { x: number; y: number; width: number; height: number };
+
+type ClipStats = {
+  /** The clip as captured (PNG, base64), to compare two captures. */
+  png: string;
+  /** Mean of each pixel's brightest channel, and the brightest channel anywhere (0 to 255). */
+  mean: number;
+  max: number;
+  /** Share of the lit pixels (a channel over 24) that are warm: yellow, amber or orange. */
+  warmShare: number;
+  /** Share of all pixels that are lit and cold: green or blue leading red. */
+  coldShare: number;
+};
+
+/** Captures a page rectangle and measures its pixels. */
+async function clipStats(
+  cdp: CDPSession,
+  page: Page,
+  clip: Box,
+): Promise<ClipStats> {
+  const { data } = await cdp.send("Page.captureScreenshot", {
+    format: "png",
+    clip: {
+      x: Math.round(clip.x),
+      y: Math.round(clip.y),
+      width: Math.round(clip.width),
+      height: Math.round(clip.height),
+      scale: 1,
+    },
+  });
+  const stats = await page.evaluate(async (png) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${png}`;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext("2d");
+    if (ctx === null) return { mean: 255, max: 255, warm: 1, cold: 0 };
+    ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+    let max = 0;
+    let sum = 0;
+    let lit = 0;
+    let warm = 0;
+    let cold = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i] ?? 0;
+      const g = pixels[i + 1] ?? 0;
+      const b = pixels[i + 2] ?? 0;
+      const top = Math.max(r, g, b);
+      max = Math.max(max, top);
+      sum += top;
+      if (top <= 24) continue;
+      lit += 1;
+      if (r > b * 1.3 && g > b * 1.3) warm += 1;
+      else if (g > r || b > r) cold += 1;
+    }
+    const n = pixels.length / 4;
+    return {
+      mean: sum / n,
+      max,
+      warm: lit === 0 ? 0 : warm / lit,
+      cold: cold / n,
+    };
+  }, data);
+  return {
+    png: data,
+    mean: stats.mean,
+    max: stats.max,
+    warmShare: stats.warm,
+    coldShare: stats.cold,
+  };
+}
 
 /** Root font size in the panel CSS (rem); the panel's min and max heights are 18rem and 32rem. */
 const REM = 16;
@@ -1046,6 +1163,10 @@ test.describe("back: graffiti alley", () => {
   test("opens the Projects panel by keyboard, links out in a new tab and closes with Escape", async ({
     page,
   }) => {
+    // Two camera moves at full motion and three screenshots: about 30 s in headless
+    // (software) Chromium since the lit ground and sky fill the frame (task 38), and it was
+    // already flaky at the 30 s default before.
+    test.slow();
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     await expect(page.locator("#loading-screen")).toBeHidden();

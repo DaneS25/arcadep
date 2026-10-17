@@ -1,7 +1,7 @@
 /**
  * The pavement and its edges (task 24): a cracked, grimy pavement all the way round the
- * building, kerb stones, drains, litter and bin bags, and the street beyond the kerb fading
- * to black. Pure numbers in metres, from a fixed seed, so every load looks the same.
+ * building, kerb stones, drains, litter and bin bags, and the ground beyond the kerb fading
+ * into the dark. Pure numbers in metres, from a fixed seed, so every load looks the same.
  *
  * - The pavement's grime is a top-down texture (`sidewalkGrimeMarks`, drawn by
  *   `scene/grime.ts` with the task 22 marks): slab and kerb joints, cracks, broken and
@@ -9,8 +9,8 @@
  *   round the puddles and rust round the drains.
  * - Drains, litter and bin bags join the details mesh (`withSidewalk`), so they cost no
  *   draw call.
- * - Past the kerb the street fades out (`streetFade`, mirrored in the street's shader), so
- *   nothing beyond the pavement shows; the scene's exposure and fill light are unchanged.
+ * - Past the kerb plain concrete ground runs on and fades into the dark (`groundFade`,
+ *   mirrored in the ground's shader, task 38).
  */
 
 import type { GeometryData } from "./boxGeometry";
@@ -62,15 +62,17 @@ export const SIDEWALK_GRIME = {
 } as const;
 
 /**
- * The street past the kerb: full brightness up to `startM` out (the gutter beside the
- * kerb), black by `endM`, so the eye stays on the building. The street slab ends a little
- * past that, where it is already black.
+ * The plain concrete ground past the kerb (task 38, replacing task 24's street that went
+ * black within 0.6 m): lit as normal up to `fadeStartM` past the kerb, then fading into
+ * the dark by `fadeEndM`, before the fog is mixed in, so the building stands on solid
+ * ground with no visible edge. The slab ends `slabM` past the kerb, where it is already
+ * black. Nothing stands on it.
  */
-export const EDGE_FADE = {
-  startM: 0,
-  endM: 0.6,
-  /** The street slab reaches this far past the kerb. */
-  slabM: 1,
+export const GROUND = {
+  fadeStartM: 3,
+  fadeEndM: 40,
+  /** The ground slab reaches this far past the kerb. */
+  slabM: 46,
 } as const;
 
 /** How far a ground point lies outside the pavement (0 on or inside it). */
@@ -86,15 +88,17 @@ const smoothstep = (a: number, b: number, t: number): number => {
   return k * k * (3 - 2 * k);
 };
 
-/** How much of the street's light is left at a ground point: 1 by the kerb, 0 past the fade. */
-export function streetFade(x: number, z: number): number {
-  return 1 - smoothstep(EDGE_FADE.startM, EDGE_FADE.endM, edgeDistanceM(x, z));
+/** How much of the ground's light is left at a ground point: 1 near the kerb, 0 past the fade. */
+export function groundFade(x: number, z: number): number {
+  return (
+    1 - smoothstep(GROUND.fadeStartM, GROUND.fadeEndM, edgeDistanceM(x, z))
+  );
 }
 
-/** The street slab (top at y = 0): the pavement plus `EDGE_FADE.slabM` all round. */
-export function streetBox(thicknessM = 0.1): Box {
+/** The ground slab (top at y = 0, under the pavement): the pavement plus `GROUND.slabM` all round. */
+export function groundBox(thicknessM = 0.1): Box {
   const r = sidewalkRect();
-  const m = EDGE_FADE.slabM;
+  const m = GROUND.slabM;
   return {
     centre: {
       x: (r.minX + r.maxX) / 2,
