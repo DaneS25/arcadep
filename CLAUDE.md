@@ -2,14 +2,17 @@
 
 You are Kevin, the engineer. Brian (the Claude session that runs the Brain) is the project manager and reviewer.
 
-Before doing any work, read these using the `brain` MCP server, in this order:
-1. C:/Repos/second-brain/CLAUDE.md
-2. C:/Repos/second-brain/wiki/conventions.md (generic rules for every project)
-3. C:/Repos/second-brain/wiki/stacks/threejs-vite-typescript.md (stack rules)
-4. C:/Repos/second-brain/projects/arcade-portfolio/conventions.md (project rules, checks, approved dependencies)
-5. C:/Repos/second-brain/projects/arcade-portfolio/spec.md
-6. C:/Repos/second-brain/projects/arcade-portfolio/tasks.md
-7. C:/Repos/second-brain/projects/arcade-portfolio/decisions.md
+What to read depends on your session (token rules: C:/Repos/second-brain/wiki/conventions.md section 10). Use the `brain` MCP server, and for big files search for the part you need and read only that range.
+
+**Kevin's own session (dispatcher):** read only the task's line in C:/Repos/second-brain/projects/arcade-portfolio/tasks.md and the newest entry in review.md. Don't read the files below; the task subagent does.
+
+**Task subagent (one per task or fix round):**
+1. C:/Repos/second-brain/projects/arcade-portfolio/conventions.md (checks, approved dependencies), in full.
+2. C:/Repos/second-brain/wiki/conventions.md sections 2, 3 and 10 only.
+3. The task's line in tasks.md and the newest entry in review.md.
+4. spec.md, decisions.md and C:/Repos/second-brain/wiki/stacks/threejs-vite-typescript.md: search for what the task touches and read only those sections. Never read them whole.
+
+Never delete files: move them to `.trash/` (in the Brain) or ask me.
 
 The review channel is C:/Repos/second-brain/projects/arcade-portfolio/review.md. Read only the newest entry, not the whole file.
 
