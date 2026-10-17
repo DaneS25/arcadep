@@ -363,7 +363,7 @@ export const LIGHTS_LOOK = {
 } as const;
 
 export const TONE_MAPPING = {
-  exposure: 0.8,
+  exposure: 0.9,
 } as const;
 
 /** How much of a surface `FogExp2` hides at `distanceM` (0 clear, 1 fully fogged). */
@@ -421,11 +421,11 @@ export const NEON_LIGHTS: readonly PointLightSpec[] = [
 ];
 
 export const AMBIENT_LIGHTS = {
-  // A dim purple-grey night sky, darker since the look feedback (task 17).
-  hemisphere: { sky: "#2a2040", ground: PALETTE.base, intensity: 0.8 },
+  // A dim purple-grey night sky, darker since the look feedback (task 17), lifted a little in task 36.
+  hemisphere: { sky: "#2a2040", ground: PALETTE.base, intensity: 1.0 },
   moon: {
     color: "#7a74b8",
-    intensity: 0.55,
+    intensity: 0.65,
     position: { x: -10, y: 20, z: 14 },
   },
 } as const;
