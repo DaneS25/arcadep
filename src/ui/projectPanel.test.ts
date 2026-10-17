@@ -193,12 +193,42 @@ describe("renderProjectPanel", () => {
     expect(document.activeElement).toBe(projectButton(dialog, "a"));
   });
 
-  it("leaves the arrow keys alone on the close button and the link", () => {
+  it("moves through the projects with Up, Down, Home and End from the close button and the link", () => {
     const { dialog } = open();
-    expect(press("ArrowDown").defaultPrevented).toBe(false);
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    // Focus starts on the close button.
+    const down = press("ArrowDown");
+    expect(down.defaultPrevented).toBe(true);
+    expect(heading(dialog)).toBe("Beta Game");
+    expect(document.activeElement).toBe(projectButton(dialog, "b"));
+    expect(scroll.mock.contexts.at(-1)).toBe(projectButton(dialog, "b"));
+    expect(scroll).toHaveBeenLastCalledWith({ block: "nearest" });
+
     link(dialog).focus();
-    expect(press("ArrowDown").defaultPrevented).toBe(false);
+    expect(press("End").defaultPrevented).toBe(true);
+    expect(heading(dialog)).toBe("Gamma CLI");
+    expect(document.activeElement).toBe(projectButton(dialog, "c"));
+    link(dialog).focus();
+    // It stops at the end rather than wrapping.
+    press("ArrowDown");
+    expect(heading(dialog)).toBe("Gamma CLI");
+    link(dialog).focus();
+    press("ArrowUp");
+    expect(heading(dialog)).toBe("Beta Game");
+    link(dialog).focus();
+    press("Home");
     expect(heading(dialog)).toBe("Alpha App");
+    expect(document.activeElement).toBe(projectButton(dialog, "a"));
+    scroll.mockRestore();
+  });
+
+  it("leaves Left and Right alone on the link, so they don't move the choice", () => {
+    const { dialog } = open();
+    link(dialog).focus();
+    expect(press("ArrowRight").defaultPrevented).toBe(false);
+    expect(press("ArrowLeft").defaultPrevented).toBe(false);
+    expect(heading(dialog)).toBe("Alpha App");
+    expect(document.activeElement).toBe(link(dialog));
   });
 
   it("returns focus on close and starts at the first project again on reopen", () => {

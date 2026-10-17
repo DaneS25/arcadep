@@ -134,12 +134,62 @@ describe("renderSkillPanel", () => {
     expect(document.activeElement).toBe(skillButton(dialog, "a"));
   });
 
-  it("leaves the arrow keys alone when focus is on the close button", () => {
+  it("moves through the skills with Up, Down, Home and End from anywhere in the panel", () => {
     const { dialog } = open();
-    // Focus starts on the close button.
-    const event = press("ArrowDown");
-    expect(event.defaultPrevented).toBe(false);
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    const close = dialog.querySelector<HTMLButtonElement>(".panel__close");
+    // Focus starts on the close button, not on a skill.
+    expect(document.activeElement).toBe(close);
+
+    const down = press("ArrowDown");
+    expect(down.defaultPrevented).toBe(true);
+    expect(heading(dialog)).toBe("Beta");
+    expect(document.activeElement).toBe(skillButton(dialog, "b"));
+    expect(scroll.mock.contexts.at(-1)).toBe(skillButton(dialog, "b"));
+    expect(scroll).toHaveBeenLastCalledWith({ block: "nearest" });
+
+    close?.focus();
+    press("End");
+    expect(heading(dialog)).toBe("Gamma");
+    expect(document.activeElement).toBe(skillButton(dialog, "c"));
+    close?.focus();
+    // It stops at the end rather than wrapping.
+    press("ArrowDown");
+    expect(heading(dialog)).toBe("Gamma");
+    close?.focus();
+    press("ArrowUp");
+    expect(heading(dialog)).toBe("Beta");
+    // The detail card counts as inside the panel too.
+    dialog.querySelector<HTMLElement>(".skills__detail")?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Home",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
     expect(heading(dialog)).toBe("Alpha");
+    expect(scroll.mock.contexts.at(-1)).toBe(skillButton(dialog, "a"));
+    scroll.mockRestore();
+  });
+
+  it("leaves Left, Right, Escape and modified arrows alone when no skill has focus", () => {
+    const { dialog } = open();
+    expect(press("ArrowRight").defaultPrevented).toBe(false);
+    expect(press("ArrowLeft").defaultPrevented).toBe(false);
+    expect(press("ArrowDown", { shiftKey: true }).defaultPrevented).toBe(false);
+    expect(press("ArrowDown", { altKey: true }).defaultPrevented).toBe(false);
+    expect(heading(dialog)).toBe("Alpha");
+  });
+
+  it("leaves a text field's arrow keys alone", () => {
+    const { dialog } = open();
+    const input = document.createElement("input");
+    dialog.querySelector(".skills__detail")?.append(input);
+    input.focus();
+    expect(press("ArrowDown").defaultPrevented).toBe(false);
+    expect(press("End").defaultPrevented).toBe(false);
+    expect(heading(dialog)).toBe("Alpha");
+    expect(document.activeElement).toBe(input);
   });
 
   it("puts every skill button in the tab order", () => {

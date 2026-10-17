@@ -1,7 +1,6 @@
 import "./projectPanel.css";
 import type { Project } from "@/content/types";
 import { isHttpsUrl } from "@/content/validate";
-import { listCommandForKey, stepPage } from "@/logic/pager";
 import {
   NEW_TAB_NOTE,
   PANEL_PLACEHOLDER,
@@ -12,15 +11,16 @@ import {
   PROJECT_TAGS_LABEL,
   projectThumbnailAlt,
 } from "./copy";
+import { listKeyHandler } from "./listKeys";
 import type { PanelView } from "./panelLayer";
 
 /**
  * The back side's Projects panel: every project from `src/content/projects.ts` as a
  * button, and the chosen project's card (screenshot when it loaded, title, tags,
  * description and a link that opens the hosted project in a new tab) as real DOM text.
- * Tab reaches every project button and then the link; the arrow keys (Home and End too)
- * move between projects while one has focus. Fits the panel layer, which owns opening,
- * Escape and focus.
+ * Tab reaches every project button and then the link; Up, Down, Home and End choose a
+ * project from anywhere in the panel (Left and Right too while a project has focus).
+ * Fits the panel layer, which owns opening, Escape and focus.
  */
 export function renderProjectPanel(
   projects: readonly Project[],
@@ -152,18 +152,7 @@ export function renderProjectPanel(
   return {
     title: PANEL_TITLES.back,
     body: [root],
-    onKeyDown(event) {
-      // Only while a project button has focus, so the arrows stay out of the link's way.
-      const from = buttons.findIndex((button) => button === event.target);
-      if (from < 0) return;
-      const command = listCommandForKey(event);
-      if (command === undefined) return;
-      // Ours, so the scene's arrow keys and the page's scrolling leave it alone.
-      event.preventDefault();
-      const target = stepPage(from, buttons.length, command);
-      choose(target);
-      buttons[target]?.focus();
-    },
+    onKeyDown: listKeyHandler(buttons, () => index, choose),
     dispose() {
       for (const button of buttons) button.removeEventListener("click", onPick);
     },

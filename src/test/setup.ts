@@ -24,3 +24,14 @@ if (!("showModal" in HTMLDialogElement.prototype)) {
     },
   });
 }
+
+// jsdom lays nothing out, so it has no scrollIntoView(); a no-op lets tests spy on it.
+if (!("scrollIntoView" in Element.prototype)) {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value() {
+      // Nothing to scroll in jsdom.
+    },
+  });
+}
