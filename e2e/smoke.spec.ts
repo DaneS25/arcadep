@@ -976,6 +976,68 @@ test.describe("left: neon skill signs", () => {
     await expect(canvas).toHaveAttribute("data-camera-view", "side");
     await expect(canvas).toBeFocused();
   });
+  test("Up, Down, Home and End move through the skills from the close button without moving the camera", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const [first, second] = skills;
+    const last = skills.at(-1);
+    if (first === undefined || second === undefined || last === undefined)
+      throw new Error("the dummy content needs two skills");
+    const item = (name: string) =>
+      panel.getByRole("button", { name: new RegExp(`^${name}`) });
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog");
+    await expect(panel).toHaveAttribute("data-side", "left");
+    const close = panel.getByRole("button", { name: "Close" });
+    await expect(close).toBeFocused();
+
+    // From the close button, not a skill: Down chooses the next skill and focuses it.
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      second.name,
+    );
+    await expect(item(second.name)).toBeFocused();
+
+    await close.focus();
+    await page.keyboard.press("End");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      last.name,
+    );
+    await expect(item(last.name)).toBeFocused();
+    await expect(item(last.name)).toBeInViewport();
+
+    await close.focus();
+    await page.keyboard.press("Home");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      first.name,
+    );
+    await expect(item(first.name)).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      first.name,
+    );
+    // Tab order is unchanged: the next skill follows.
+    await page.keyboard.press("Tab");
+    await expect(item(second.name)).toBeFocused();
+
+    // The arrow keys stayed in the panel: the scene is still on the left close-up.
+    await expect(canvas).toHaveAttribute("data-app-state", "panel");
+    await expect(canvas).toHaveAttribute("data-app-side", "left");
+    await expect(canvas).toHaveAttribute("data-camera-side", "left");
+    await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
+    await expect(canvas).toBeFocused();
+  });
 });
 
 test.describe("back: graffiti alley", () => {
@@ -1044,6 +1106,67 @@ test.describe("back: graffiti alley", () => {
     await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toHaveAttribute("data-camera-side", "back");
     await expect(canvas).toHaveAttribute("data-camera-view", "side");
+    await expect(canvas).toBeFocused();
+  });
+
+  test("Up, Down, Home and End move through the projects from the close button and the link without moving the camera", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.locator("#loading-screen")).toBeHidden();
+    const canvas = page.locator("canvas.scene");
+    const [first, second] = projects;
+    const last = projects.at(-1);
+    if (first === undefined || second === undefined || last === undefined)
+      throw new Error("the dummy content needs two projects");
+
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog");
+    await expect(panel).toHaveAttribute("data-side", "back");
+    const close = panel.getByRole("button", { name: "Close" });
+    const link = panel.getByRole("link", { name: /Open project/ });
+    await expect(close).toBeFocused();
+
+    // From the close button: Down chooses the next project and focuses it.
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      second.title,
+    );
+    await expect(
+      panel.getByRole("button", { name: second.title }),
+    ).toBeFocused();
+
+    // From the link: End and Home jump to the last and first project.
+    await link.focus();
+    await page.keyboard.press("End");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      last.title,
+    );
+    const lastButton = panel.getByRole("button", { name: last.title });
+    await expect(lastButton).toBeFocused();
+    await expect(lastButton).toBeInViewport();
+    await expect(link).toHaveAttribute("href", last.url);
+    await link.focus();
+    await page.keyboard.press("Home");
+    await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
+      first.title,
+    );
+    await expect(
+      panel.getByRole("button", { name: first.title }),
+    ).toBeFocused();
+
+    // The arrow keys stayed in the panel: the scene is still on the back close-up.
+    await expect(canvas).toHaveAttribute("data-app-state", "panel");
+    await expect(canvas).toHaveAttribute("data-app-side", "back");
+    await expect(canvas).toHaveAttribute("data-camera-side", "back");
+    await expect(canvas).toHaveAttribute("data-camera-view", "closeUp");
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(canvas).toHaveAttribute("data-app-state", "focused");
     await expect(canvas).toBeFocused();
   });
 

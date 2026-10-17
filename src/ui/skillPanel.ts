@@ -1,6 +1,5 @@
 import "./skillPanel.css";
 import type { Skill } from "@/content/types";
-import { listCommandForKey, stepPage } from "@/logic/pager";
 import {
   PANEL_PLACEHOLDER,
   PANEL_TITLES,
@@ -11,6 +10,7 @@ import {
   skillLevelText,
   skillYearsText,
 } from "./copy";
+import { listKeyHandler } from "./listKeys";
 import type { PanelView } from "./panelLayer";
 
 const LEVEL_MAX = 5;
@@ -18,9 +18,9 @@ const LEVEL_MAX = 5;
 /**
  * The left side's Skills panel: every skill from `src/content/skills.ts` as a button, and
  * the chosen skill's details (name, group, level 1 to 5, years, a line about it) as real
- * DOM text. Tab reaches every skill button; the arrow keys (Home and End too) move between
- * them while one has focus, and choosing one shows its details. Fits the panel layer,
- * which owns opening, Escape and focus.
+ * DOM text. Tab reaches every skill button; Up, Down, Home and End choose a skill from
+ * anywhere in the panel (Left and Right too while a skill has focus), and choosing one
+ * shows its details. Fits the panel layer, which owns opening, Escape and focus.
  */
 export function renderSkillPanel(
   skills: readonly Skill[],
@@ -142,18 +142,7 @@ export function renderSkillPanel(
   return {
     title: PANEL_TITLES.left,
     body: [root],
-    onKeyDown(event) {
-      // Only while a skill button has focus, so the arrows stay out of the close button's way.
-      const from = buttons.findIndex((button) => button === event.target);
-      if (from < 0) return;
-      const command = listCommandForKey(event);
-      if (command === undefined) return;
-      // Ours, so the scene's arrow keys and the page's scrolling leave it alone.
-      event.preventDefault();
-      const target = stepPage(from, buttons.length, command);
-      choose(target);
-      buttons[target]?.focus();
-    },
+    onKeyDown: listKeyHandler(buttons, () => index, choose),
     dispose() {
       for (const button of buttons) button.removeEventListener("click", onPick);
     },
