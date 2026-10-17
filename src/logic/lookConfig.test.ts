@@ -267,9 +267,11 @@ describe("look feedback (task 17): darker, purple instead of amber", () => {
   });
 
   it("is darker than the task 9 to 16 look", () => {
-    expect(TONE_MAPPING.exposure).toBeLessThanOrEqual(0.8);
-    expect(AMBIENT_LIGHTS.hemisphere.intensity).toBeLessThanOrEqual(0.8);
-    expect(AMBIENT_LIGHTS.moon.intensity).toBeLessThanOrEqual(0.6);
+    // Task 36 lifted these a little (0.8, 0.8, 0.55 to 0.9, 1, 0.65); they stay well
+    // below the task 9 to 16 values (1.1, 1.5, 1.1).
+    expect(TONE_MAPPING.exposure).toBeLessThanOrEqual(0.9);
+    expect(AMBIENT_LIGHTS.hemisphere.intensity).toBeLessThanOrEqual(1);
+    expect(AMBIENT_LIGHTS.moon.intensity).toBeLessThanOrEqual(0.7);
     expect(BLOOM.strength).toBeLessThan(1.2);
     expect(ENVIRONMENT.intensity).toBeLessThan(0.6);
     const lightTotal = NEON_LIGHTS.reduce((sum, l) => sum + l.intensity, 0);
