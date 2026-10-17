@@ -38,6 +38,7 @@ import {
 } from "./detailLayout";
 import { crack, raggedPolygon, type GrimeMark } from "./grimeLayout";
 import { createRng, type Rng } from "./rng";
+import { streetLampFootprints } from "./streetLampLayout";
 import { SIDE_DOOR, TERMINAL_SIDE } from "./terminalLayout";
 
 export const SIDEWALK = {
@@ -278,6 +279,8 @@ export function litterKeepOut(): Rect[] {
   for (const d of drains())
     for (const part of drainParts(d)) rects.push(groundRect(part.box, 0.1));
   for (const part of binBags()) rects.push(groundRect(part.box, 0.15));
+  // The street lamps' feet (task 40).
+  rects.push(...streetLampFootprints(0.15));
   // The generator's skid (task 28), with a little room round it.
   const gen = generatorFootprint();
   rects.push({

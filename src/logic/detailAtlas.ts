@@ -39,6 +39,8 @@ export const DETAIL_TEXTURE = {
     /** The small lights (task 34): a cold bulb, a cold tube, and the exit sign's face. */
     lightBulb: { x: 576, y: 704, width: 64, height: 64 },
     lightTube: { x: 640, y: 704, width: 64, height: 64 },
+    /** The street lamps' warm bulbs (task 40). */
+    lightStreet: { x: 704, y: 704, width: 64, height: 64 },
     exit: { x: 384, y: 768, width: 256, height: 96 },
   },
 } as const satisfies {
@@ -57,7 +59,8 @@ export const DETAIL_TEXTURE = {
     | "ledCyan"
     | "ledPurple"
     | "lightBulb"
-    | "lightTube",
+    | "lightTube"
+    | "lightStreet",
     PixelRect
   >;
 };
@@ -109,6 +112,7 @@ export function glowUvs(): Readonly<Record<GlowColor, [number, number]>> {
     purple: centreUv(r.ledPurple),
     bulb: centreUv(r.lightBulb),
     tube: centreUv(r.lightTube),
+    street: centreUv(r.lightStreet),
   };
 }
 

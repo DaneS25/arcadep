@@ -37,6 +37,7 @@ import {
 } from "@/logic/lightLayout";
 import { EXIT_SIGN } from "@/ui/copy";
 import { withSidewalk } from "@/logic/sidewalkLayout";
+import { withStreetLamps } from "@/logic/streetLampLayout";
 import type { PixelRect } from "@/logic/graffitiLayout";
 import {
   DETAILS_LOOK,
@@ -44,6 +45,7 @@ import {
   WIRE_LOOK,
   LED_LOOK,
   LIGHTS_LOOK,
+  STREET_LAMP_LOOK,
   LAMP_LOOK,
   SIGNS_LOOK,
   surfaceMaterialParams,
@@ -250,6 +252,14 @@ function drawAtlas(ctx: CanvasRenderingContext2D, texts: SignTexts): void {
     rects.lightTube.width,
     rects.lightTube.height,
   );
+  // The street lamps' warm bulbs (task 40).
+  ctx.fillStyle = STREET_LAMP_LOOK.bulb;
+  ctx.fillRect(
+    rects.lightStreet.x,
+    rects.lightStreet.y,
+    rects.lightStreet.width,
+    rects.lightStreet.height,
+  );
   drawSign(ctx, rects.exit, EXIT_SIGN, LIGHTS_LOOK.exit, neon);
   for (const [id, rect] of Object.entries(WINDOW_CELLS))
     drawWindowCell(ctx, id as WindowCellId, rect);
@@ -290,8 +300,10 @@ export function createDetails(
   const layout = withSignPlates(
     withWindows(
       withSidewalk(
-        withLights(
-          withTaps(withWires(withGenerator(withDucts(detailLayout())))),
+        withStreetLamps(
+          withLights(
+            withTaps(withWires(withGenerator(withDucts(detailLayout())))),
+          ),
         ),
       ),
     ),
