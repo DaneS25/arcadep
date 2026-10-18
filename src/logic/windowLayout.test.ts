@@ -61,6 +61,7 @@ const SHADES: DetailShades = {
   wire: 0.2,
   led: 0,
   light: 0,
+  iron: 0.2,
 };
 
 const dot = (

@@ -33,18 +33,20 @@ export const SURFACES: Readonly<Record<SurfaceId, SurfaceLook>> = {
     fallback: "wall",
     tint: "#9a9aa6",
     tileM: 2,
-    roughness: 0.9,
+    // Matt, weathered brick (task 41: was 0.9 and 0.4), so the walls don't shine.
+    roughness: 0.96,
     metalness: 0,
-    envMapIntensity: 0.4,
+    envMapIntensity: 0.2,
   },
   trim: {
     slot: "concrete",
     fallback: "trim",
     tint: "#8a8a96",
     tileM: 2,
-    roughness: 0.8,
+    // Matt concrete trim (task 41: was 0.8 and 0.4).
+    roughness: 0.92,
     metalness: 0,
-    envMapIntensity: 0.4,
+    envMapIntensity: 0.2,
   },
   sidewalk: {
     slot: "concrete",
@@ -135,8 +137,9 @@ export function bloomLuma(hex: string): number | undefined {
  * Neon tubes all reach this brightness as the bloom pass sees it: just past the
  * threshold, so every colour glows the same, dimly (task 17, darker look). Red was 3 times
  * its colour before (about 0.95); deep purple, being dark, needs a larger multiplier.
+ * Task 41 took it from 0.9 to 0.85, so the neon is no brighter after the exposure lift.
  */
-export const NEON_BLOOM_LUMA = 0.9;
+export const NEON_BLOOM_LUMA = 0.85;
 
 /** What a neon tube's colour is multiplied by, so it reaches `NEON_BLOOM_LUMA`. */
 export function neonIntensity(hex: string): number {
@@ -159,9 +162,10 @@ export const CABINET_LOOK = {
 /** The neon skill signs on the left side (task 11). */
 export const SIGNS_LOOK = {
   /** Sign faces: atlas colour times this; the tubes pass the bloom threshold, the plates don't. */
-  faceIntensity: 1.1,
+  // Task 41: was 1.1 and 1.8, dimmed with the exposure lift so the signs keep the same lead.
+  faceIntensity: 1.04,
   /** Brighter faces while the cluster is hovered or focused. */
-  litFaceIntensity: 1.8,
+  litFaceIntensity: 1.7,
   /**
    * Red glow on the plates while hovered or focused. The plates are part of the details
    * mesh since task 15, which draws this through its atlas.
@@ -204,9 +208,11 @@ export const DETAILS_LOOK = {
     fallback: "prop",
     tint: "#8a8a96",
     tileM: 1,
-    roughness: 0.6,
-    metalness: 0.5,
-    envMapIntensity: 0.8,
+    // Weathered, matt metal (task 41: was 0.6, 0.5 and 0.8): rougher and less metallic,
+    // so the props catch less specular shine and less of the environment.
+    roughness: 0.78,
+    metalness: 0.3,
+    envMapIntensity: 0.4,
   } satisfies SurfaceLook,
   /** Grey shade per kind of part, multiplying the metal. */
   shades: {
@@ -235,8 +241,15 @@ export const DETAILS_LOOK = {
     led: 0,
     // The small lights' bulbs and tubes (task 34): black under their glow.
     light: 0,
+    // The street lamps' wrought iron (task 41): dark, nearly black.
+    iron: 0.22,
   },
   emissiveIntensity: 1.2,
+  /**
+   * The rooftop, shop and exit signs' colours are drawn at this share (in linear light), so
+   * the slight exposure lift of task 41 leaves them no brighter than before.
+   */
+  signDim: 0.94,
   /**
    * A thin, pale, hot line down each letter of the signs, drawn over the coloured glow:
    * only it blooms, so the words stay readable.
@@ -370,20 +383,23 @@ export const LIGHTS_LOOK = {
 /**
  * The two street lamps (task 40): warm orange incandescent light, the one exception to the
  * no-yellow/amber rule (user, 2026-10-18: these two lamps only). Each point light lights
- * its wall, the corner beside it and the pavement below, but stays under the neon's
- * lights, so the red and purple still lead. The bulb, in the details atlas, is a pale warm
- * orange just over the bloom threshold, for a soft glow. Steady, never flickering.
+ * its wall, the corner beside it and the pavement below, but stays under the strongest
+ * neon light, so the red and purple still lead. The lantern glass, in the details atlas,
+ * is a pale warm orange over the bloom threshold, for a soft glow. Steady, never
+ * flickering. Task 41 gave them more glow: intensity 24 to 26, reach 10 to 12 m, the glass
+ * `#ffcc99` to `#ffd6a6` (and bigger, as a lantern).
  */
 export const STREET_LAMP_LOOK = {
   color: "#ff8a3c",
-  intensity: 24,
-  distanceM: 10,
+  intensity: 26,
+  distanceM: 12,
   decay: 2,
-  bulb: "#ffcc99",
+  bulb: "#ffd6a6",
 } as const;
 
 export const TONE_MAPPING = {
-  exposure: 0.9,
+  // A slight lift in task 41 (was 0.9); the neon is dimmed to match.
+  exposure: 0.95,
 } as const;
 
 /** How much of a surface `FogExp2` hides at `distanceM` (0 clear, 1 fully fogged). */
@@ -407,45 +423,47 @@ export type PointLightSpec = {
 
 /**
  * Coloured lights next to the neon, so the walls and the wet street pick up its glow.
- * No shadows; four lights keep the per-pixel cost small.
+ * No shadows; four lights keep the per-pixel cost small. Task 41 dimmed each by about 5%
+ * (28, 16, 20, 18 before) to offset the exposure lift.
  */
 export const NEON_LIGHTS: readonly PointLightSpec[] = [
   {
     name: "front-red",
     color: "accent",
     position: { x: 0, y: 3.2, z: 7 },
-    intensity: 28,
+    intensity: 26.5,
     distanceM: 22,
   },
   {
     name: "left-cyan",
     color: "cyan",
     position: { x: -8, y: 3.4, z: 0 },
-    intensity: 16,
+    intensity: 15,
     distanceM: 18,
   },
   {
     name: "right-red",
     color: "accent",
     position: { x: 8.5, y: 6, z: 0 },
-    intensity: 20,
+    intensity: 19,
     distanceM: 20,
   },
   {
     name: "alley-purple",
     color: "purple",
     position: { x: 0, y: 4, z: -7 },
-    intensity: 18,
+    intensity: 17,
     distanceM: 16,
   },
 ];
 
 export const AMBIENT_LIGHTS = {
-  // A dim purple-grey night sky, darker since the look feedback (task 17), lifted a little in task 36.
-  hemisphere: { sky: "#2a2040", ground: PALETTE.base, intensity: 1.0 },
+  // A dim purple-grey night sky, darker since the look feedback (task 17), lifted a little
+  // in task 36 and again in task 41 (1.0 and 0.65 before).
+  hemisphere: { sky: "#2a2040", ground: PALETTE.base, intensity: 1.1 },
   moon: {
     color: "#7a74b8",
-    intensity: 0.65,
+    intensity: 0.7,
     position: { x: -10, y: 20, z: 14 },
   },
 } as const;

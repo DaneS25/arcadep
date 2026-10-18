@@ -27,7 +27,9 @@ export type DetailKind =
   /** A wire tap's status LED (task 33): glows with its colour's atlas patch. */
   | "led"
   /** A small light's bulb or tube (task 34): glows with its colour's atlas patch. */
-  | "light";
+  | "light"
+  /** The street lamps' dark wrought iron (task 41). */
+  | "iron";
 
 /**
  * What a glowing box (an LED or a small light) glows with: the palette's red, cyan or

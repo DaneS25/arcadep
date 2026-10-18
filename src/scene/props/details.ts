@@ -86,14 +86,23 @@ export type Details = {
   dispose(): void;
 };
 
-/** One sign's text: a coloured neon glow with a pale hot core, fitted to its rectangle. */
+/** A colour scaled by `DETAILS_LOOK.signDim` in linear light (task 41). */
+function dimmed(hex: string): string {
+  return new Color(hex).multiplyScalar(DETAILS_LOOK.signDim).getStyle();
+}
+
+/**
+ * One sign's text: a coloured neon glow with a pale hot core, fitted to its rectangle. Both
+ * are drawn a little dimmed (`DETAILS_LOOK.signDim`), so the signs keep their lead.
+ */
 function drawSign(
   ctx: CanvasRenderingContext2D,
   rect: PixelRect,
   text: string,
-  color: string,
+  signColor: string,
   family: string,
 ): void {
+  const color = dimmed(signColor);
   const pad = Math.round(rect.height * 0.12);
   // A thin neon frame round the sign.
   ctx.strokeStyle = color;
@@ -119,7 +128,7 @@ function drawSign(
     rect.width - 4 * pad,
   );
   glowText(ctx, text, cx, cy, color, pad * 1.5);
-  ctx.strokeStyle = DETAILS_LOOK.signCore;
+  ctx.strokeStyle = dimmed(DETAILS_LOOK.signCore);
   ctx.lineWidth = Math.max(1.5, rect.height * 0.012);
   ctx.strokeText(text, cx, cy);
 }

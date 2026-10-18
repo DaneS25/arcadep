@@ -38,8 +38,10 @@ import { skillSignsLayout } from "./skillSignsLayout";
 import {
   STREET_LAMP,
   STREET_LAMPS,
+  beamBounds,
   bulbCentre,
   lampLightPosition,
+  streetLampBeams,
   streetLampBoxes,
   streetLampFootprints,
   streetLampParts,
@@ -98,7 +100,11 @@ function hueSat(hex: string): { hue: number; sat: number } {
   return { hue: (hue * 60 + 360) % 360, sat: d / max };
 }
 
-const LAMP_BOXES = streetLampBoxes().map((part) => part.box);
+/** Every lamp part as a box: the iron, the glass, and the box round each scrollwork bar. */
+const LAMP_BOXES = [
+  ...streetLampBoxes().map((part) => part.box),
+  ...streetLampBeams().map(beamBounds),
+];
 
 describe("STREET_LAMPS", () => {
   it("are two, each standing on the pavement inside the kerb and off the building", () => {
@@ -120,6 +126,15 @@ describe("STREET_LAMPS", () => {
         9,
       );
     }
+  });
+
+  it("stand at the kerb: each foot within 0.1 m of the kerb stones on its side (task 41)", () => {
+    const walk = sidewalkRect();
+    const k = STREET.kerbWidthM;
+    const [front, back] = streetLampFootprints();
+    if (front === undefined || back === undefined) throw new Error("no lamps");
+    expect(walk.maxZ - k - front.maxZ).toBeLessThan(0.1);
+    expect(back.minZ - (walk.minZ + k)).toBeLessThan(0.1);
   });
 
   it("hold their heads about level with the first floor, reaching towards the building", () => {
@@ -178,26 +193,61 @@ describe("STREET_LAMPS", () => {
 });
 
 describe("streetLampParts", () => {
-  it("is plain metal with one warm bulb of the light kind, steady (no blink)", () => {
+  it("is dark wrought iron with one warm lantern glass of the light kind, steady (no blink)", () => {
+    expect(DETAILS_LOOK.shades.iron).toBeLessThan(0.3);
     for (const lamp of STREET_LAMPS) {
       const parts = streetLampParts(lamp);
-      for (const part of parts.boxes) expect(part.kind).toBe("metal");
+      for (const part of parts.boxes) expect(part.kind).toBe("iron");
+      expect(parts.beams.length).toBeGreaterThan(10);
+      for (const beam of parts.beams) expect(beam.kind).toBe("iron");
       expect(parts.bulb.kind).toBe("light");
       expect(parts.bulb.glow).toBe("street");
       expect(parts.bulb.blink).toBeUndefined();
     }
   });
 
-  it("hangs the bulb under the head, with the light just below it", () => {
+  it("has a stepped base narrowing up the post", () => {
+    for (const lamp of STREET_LAMPS) {
+      const steps = streetLampParts(lamp).boxes.slice(0, 4);
+      for (const [i, step] of steps.entries()) {
+        const below = steps[i - 1]?.box;
+        if (below === undefined) continue;
+        expect(step.box.size.x).toBeLessThan(below.size.x);
+        expect(step.box.centre.y - step.box.size.y / 2).toBeCloseTo(
+          below.centre.y + below.size.y / 2,
+          9,
+        );
+      }
+    }
+  });
+
+  it("hangs the glass between the lantern's roof and floor, with the light just below its centre", () => {
     for (const lamp of STREET_LAMPS) {
       const parts = streetLampParts(lamp);
-      const head = parts.boxes.at(-1)?.box;
-      if (head === undefined) throw new Error("no head");
       const bulb = parts.bulb.box;
-      expect(bulb.centre.y + bulb.size.y / 2).toBeCloseTo(
-        head.centre.y - head.size.y / 2,
-        9,
-      );
+      const over = (b: Box): boolean =>
+        Math.abs(b.centre.x - bulb.centre.x) < EPS &&
+        Math.abs(b.centre.z - bulb.centre.z) < EPS &&
+        b.size.x >= bulb.size.x &&
+        b.size.z >= bulb.size.z;
+      const top = bulb.centre.y + bulb.size.y / 2;
+      const bottom = bulb.centre.y - bulb.size.y / 2;
+      expect(
+        parts.boxes.some(
+          (p) =>
+            over(p.box) &&
+            Math.abs(p.box.centre.y - p.box.size.y / 2 - top) < EPS,
+        ),
+        "roof",
+      ).toBe(true);
+      expect(
+        parts.boxes.some(
+          (p) =>
+            over(p.box) &&
+            Math.abs(p.box.centre.y + p.box.size.y / 2 - bottom) < EPS,
+        ),
+        "floor",
+      ).toBe(true);
       const light = lampLightPosition(lamp);
       expect(light.y).toBeLessThan(bulb.centre.y);
       expect(light.x).toBeCloseTo(bulb.centre.x, 9);
@@ -212,6 +262,8 @@ describe("withStreetLamps", () => {
     const merged = withStreetLamps(base);
     expect(merged.boxes.slice(0, base.boxes.length)).toEqual(base.boxes);
     expect(merged.boxes.slice(base.boxes.length)).toEqual(streetLampBoxes());
+    expect(merged.beams.slice(0, base.beams.length)).toEqual(base.beams);
+    expect(merged.beams.slice(base.beams.length)).toEqual(streetLampBeams());
     expect(merged.faces).toEqual(base.faces);
   });
 });
@@ -234,7 +286,7 @@ describe("STREET_LAMP_LOOK (the warm orange exception, user 2026-10-18)", () => 
     }
   });
 
-  it("gives the bulb a soft glow, just over the bloom threshold but under the signs' neon", () => {
+  it("gives the lantern glass a soft glow, over the bloom threshold but under the signs' neon", () => {
     const bulb =
       (relativeLuminance(STREET_LAMP_LOOK.bulb) ?? Number.NaN) *
       DETAILS_LOOK.emissiveIntensity;
@@ -242,10 +294,12 @@ describe("STREET_LAMP_LOOK (the warm orange exception, user 2026-10-18)", () => 
     expect(bulb).toBeLessThan(BLOOM.threshold * 1.25);
   });
 
-  it("leaves the neon leading: each lamp is weaker and shorter-reaching than the neon's lights", () => {
-    const weakestNeon = Math.min(...NEON_LIGHTS.map((l) => l.intensity));
+  it("leaves the neon leading: each lamp is no stronger than the strongest neon light, and shorter-reaching than every one", () => {
+    // Task 41 gave the lamps more light (24 to 26) as the neon lights dimmed a little, so
+    // the bound is the strongest neon light (was 1.5 times the weakest).
+    const strongestNeon = Math.max(...NEON_LIGHTS.map((l) => l.intensity));
     const shortestNeon = Math.min(...NEON_LIGHTS.map((l) => l.distanceM));
-    expect(STREET_LAMP_LOOK.intensity).toBeLessThanOrEqual(weakestNeon * 1.5);
+    expect(STREET_LAMP_LOOK.intensity).toBeLessThanOrEqual(strongestNeon);
     expect(STREET_LAMP_LOOK.distanceM).toBeLessThan(shortestNeon);
     const total = NEON_LIGHTS.reduce((s, l) => s + l.intensity, 0);
     expect(STREET_LAMP_LOOK.intensity * STREET_LAMPS.length).toBeLessThan(

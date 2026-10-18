@@ -82,6 +82,19 @@ describe("SURFACES", () => {
     }
   });
 
+  it("keeps the building matt and weathered, while the wet pavement still reflects (task 41)", () => {
+    const { wall, trim, sidewalk } = SURFACES;
+    for (const look of [wall, trim, DETAILS_LOOK.surface]) {
+      expect(look.roughness).toBeGreaterThanOrEqual(0.75);
+      expect(look.envMapIntensity).toBeLessThanOrEqual(0.4);
+      expect(look.envMapIntensity).toBeLessThan(sidewalk.envMapIntensity);
+      expect(look.roughness).toBeGreaterThan(sidewalk.roughness);
+    }
+    expect(wall.metalness).toBe(0);
+    expect(trim.metalness).toBe(0);
+    expect(DETAILS_LOOK.surface.metalness).toBeLessThanOrEqual(0.3);
+  });
+
   it("keeps the ground plain concrete: matt, not metallic, no brighter than the trim", () => {
     const { ground, sidewalk, trim } = SURFACES;
     expect(ground.slot).toBe("concrete");
@@ -116,6 +129,20 @@ describe("fogFactor", () => {
 });
 
 describe("neon and bloom", () => {
+  it("keeps the neon no brighter after the exposure lift of task 41", () => {
+    // Before: exposure 0.9, neon luma 0.9, sign faces 1.1, neon lights 82 in all.
+    const before = 0.9 * 0.9;
+    expect(TONE_MAPPING.exposure * NEON_BLOOM_LUMA).toBeLessThanOrEqual(before);
+    expect(
+      TONE_MAPPING.exposure * SIGNS_LOOK.faceIntensity,
+    ).toBeLessThanOrEqual(0.9 * 1.1);
+    expect(TONE_MAPPING.exposure * DETAILS_LOOK.signDim).toBeLessThanOrEqual(
+      0.9,
+    );
+    const lightTotal = NEON_LIGHTS.reduce((sum, l) => sum + l.intensity, 0);
+    expect(TONE_MAPPING.exposure * lightTotal).toBeLessThanOrEqual(0.9 * 82);
+  });
+
   it("drives every neon colour just past the bloom threshold, equally", () => {
     expect(BLOOM.threshold).toBeGreaterThan(0.5);
     expect(BLOOM.threshold).toBeLessThan(1);
@@ -195,7 +222,9 @@ describe("DETAILS_LOOK", () => {
     (relativeLuminance(hex) ?? Number.NaN) * DETAILS_LOOK.emissiveIntensity;
 
   it("makes the signs' letters bloom, but never the puddles' reflection", () => {
-    expect(glow(DETAILS_LOOK.signCore)).toBeGreaterThan(BLOOM.threshold);
+    expect(glow(DETAILS_LOOK.signCore) * DETAILS_LOOK.signDim).toBeGreaterThan(
+      BLOOM.threshold,
+    );
     for (const hex of DETAILS_LOOK.puddleGlow)
       expect(glow(hex)).toBeLessThan(BLOOM.threshold / 10);
   });
@@ -284,10 +313,10 @@ describe("look feedback (task 17): darker, purple instead of amber", () => {
   });
 
   it("is darker than the task 9 to 16 look", () => {
-    // Task 36 lifted these a little (0.8, 0.8, 0.55 to 0.9, 1, 0.65); they stay well
-    // below the task 9 to 16 values (1.1, 1.5, 1.1).
-    expect(TONE_MAPPING.exposure).toBeLessThanOrEqual(0.9);
-    expect(AMBIENT_LIGHTS.hemisphere.intensity).toBeLessThanOrEqual(1);
+    // Task 36 lifted these a little (0.8, 0.8, 0.55 to 0.9, 1, 0.65), and task 41 again
+    // (0.95, 1.1, 0.7); they stay well below the task 9 to 16 values (1.1, 1.5, 1.1).
+    expect(TONE_MAPPING.exposure).toBeLessThanOrEqual(0.95);
+    expect(AMBIENT_LIGHTS.hemisphere.intensity).toBeLessThanOrEqual(1.1);
     expect(AMBIENT_LIGHTS.moon.intensity).toBeLessThanOrEqual(0.7);
     expect(BLOOM.strength).toBeLessThan(1.2);
     expect(ENVIRONMENT.intensity).toBeLessThan(0.6);
