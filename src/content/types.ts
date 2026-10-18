@@ -45,6 +45,8 @@ export type ContactLink = {
 /** What the door terminal (right side) shows. A missing or invalid field is `null`. */
 export type Contact = {
   email: string | null;
+  /** Shown as typed, dialled through a `tel:` link. */
+  phone: string | null;
   github: string | null;
   linkedin: string | null;
   links: readonly ContactLink[];

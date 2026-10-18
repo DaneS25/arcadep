@@ -20,6 +20,7 @@ import {
 const PROFILE = { name: "Alex Doe", title: "Developer", tagline: "Hi there." };
 const CONTACT: Contact = {
   email: "alex@example.com",
+  phone: "+1 555 010 0199",
   github: "https://github.com/alex",
   linkedin: null,
   links: [{ label: "Blog", url: "https://example.com/blog/" }],
@@ -115,6 +116,25 @@ describe("renderTerminalPanel", () => {
     );
   });
 
+  it("shows the phone number as a tel: link with only the digits and the +", () => {
+    const { type, lastEntry } = mount();
+    type("phone");
+    const link = lastEntry().querySelector("a");
+    expect(link?.getAttribute("href")).toBe("tel:+15550100199");
+    expect(link?.textContent).toBe("+1 555 010 0199");
+    expect(link?.target).toBe("");
+  });
+
+  it("says the phone is not listed when there is none", () => {
+    const { type, lastEntry } = mount({
+      ...CONTENT,
+      contact: { ...CONTACT, phone: null },
+    });
+    type("tel");
+    expect(lastEntry().textContent).toContain(terminalNotListed("Phone"));
+    expect(lastEntry().querySelector("a")).toBeNull();
+  });
+
   it("opens profile links in a new tab and says so", () => {
     const { type, lastEntry } = mount();
     type("github");
@@ -146,6 +166,7 @@ describe("renderTerminalPanel", () => {
     type("contact");
     const text = lastEntry().textContent;
     expect(text).toContain("alex@example.com");
+    expect(text).toContain("Phone: +1 555 010 0199");
     expect(text).toContain("github.com/alex");
     expect(text).toContain(terminalNotListed("LinkedIn"));
     expect(text).toContain("Blog: example.com/blog");

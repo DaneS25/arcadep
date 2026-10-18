@@ -133,13 +133,13 @@ describe("detailLayout", () => {
     );
   });
 
-  it("hangs ARCADE on the front over the shop and COFFEE on the right, each in its own colours (task 31)", () => {
+  it("hangs the arcade sign on the front over the shop and the cafe sign on the right, each in its own colours (tasks 31, 42)", () => {
     const face = (sign: string) => layout.faces.find((f) => f.sign === sign);
     // The front faces +z, the right +x.
     expect(face("arcade")?.quad.normal.z).toBeCloseTo(1);
     expect(face("cafe")?.quad.normal.x).toBeCloseTo(1);
-    expect(signage.arcade).toBe("ARCADE");
-    expect(signage.cafe).toBe("COFFEE");
+    expect(signage.arcade).toBe("DEVOPS");
+    expect(signage.cafe).toBe("AGENTS");
     expect(DETAILS_LOOK.signColors.arcade).toBe("purple");
     expect(DETAILS_LOOK.signColors.cafe).toBe("cyan");
   });

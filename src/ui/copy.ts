@@ -97,6 +97,7 @@ export const TERMINAL_COMMAND_HELP: Readonly<Record<TerminalCommand, string>> =
     help: "list the commands, or explain one: help email",
     contact: "every way to reach me",
     email: "my email address",
+    phone: "my phone number",
     github: "my GitHub profile",
     linkedin: "my LinkedIn profile",
     whoami: "who runs this building",
@@ -106,6 +107,7 @@ export const TERMINAL_COMMAND_HELP: Readonly<Record<TerminalCommand, string>> =
 /** Labels of the contact lines. */
 export const TERMINAL_FIELD_LABELS = {
   email: "Email",
+  phone: "Phone",
   github: "GitHub",
   linkedin: "LinkedIn",
 } as const;
