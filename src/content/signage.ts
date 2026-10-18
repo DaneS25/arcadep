@@ -9,8 +9,7 @@ export type Signage = {
   readonly arcade: string;
 };
 
-// DUMMY: replace
 export const signage: Signage = {
-  cafe: "COFFEE",
-  arcade: "ARCADE",
+  cafe: "AGENTS",
+  arcade: "DEVOPS",
 };

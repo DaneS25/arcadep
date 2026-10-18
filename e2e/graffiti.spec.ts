@@ -23,7 +23,7 @@ test.describe("back: graffiti alley", () => {
     const canvas = page.locator("canvas.scene");
     const [first, second] = projects;
     if (first === undefined || second === undefined)
-      throw new Error("the dummy content needs two projects");
+      throw new Error("the site content needs two projects");
 
     // Tab order: front, right, back.
     for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
@@ -48,7 +48,7 @@ test.describe("back: graffiti alley", () => {
     // Tab reaches the first project; the arrow keys move to the next one.
     await page.keyboard.press("Tab");
     await expect(
-      panel.getByRole("button", { name: first.title }),
+      panel.locator(`button[data-project="${first.id}"]`),
     ).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
@@ -90,7 +90,7 @@ test.describe("back: graffiti alley", () => {
     const [first, second] = projects;
     const last = projects.at(-1);
     if (first === undefined || second === undefined || last === undefined)
-      throw new Error("the dummy content needs two projects");
+      throw new Error("the site content needs two projects");
 
     for (let i = 0; i < 3; i += 1) await page.keyboard.press("Tab");
     await expect(canvas).toHaveAttribute("data-camera-side", "back");
@@ -107,7 +107,7 @@ test.describe("back: graffiti alley", () => {
       second.title,
     );
     await expect(
-      panel.getByRole("button", { name: second.title }),
+      panel.locator(`button[data-project="${second.id}"]`),
     ).toBeFocused();
 
     // From the link: End and Home jump to the last and first project.
@@ -116,7 +116,7 @@ test.describe("back: graffiti alley", () => {
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       last.title,
     );
-    const lastButton = panel.getByRole("button", { name: last.title });
+    const lastButton = panel.locator(`button[data-project="${last.id}"]`);
     await expect(lastButton).toBeFocused();
     await expect(lastButton).toBeInViewport();
     await expect(link).toHaveAttribute("href", last.url);
@@ -126,7 +126,7 @@ test.describe("back: graffiti alley", () => {
       first.title,
     );
     await expect(
-      panel.getByRole("button", { name: first.title }),
+      panel.locator(`button[data-project="${first.id}"]`),
     ).toBeFocused();
 
     // The arrow keys stayed in the panel: the scene is still on the back close-up.
@@ -238,7 +238,7 @@ test.describe("back: graffiti alley", () => {
       const poster = layout.posters[index];
       const project = projects[index];
       if (poster === undefined || project === undefined)
-        throw new Error("the dummy content needs three projects");
+        throw new Error("the site content needs three projects");
       const at = screenPointFromSide("back", poster.centre, box);
       await page.mouse.click(at.x, at.y);
       const panel = page.getByRole("dialog");

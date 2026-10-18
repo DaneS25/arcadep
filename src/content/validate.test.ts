@@ -3,6 +3,7 @@ import { rawContent } from "@/content/index";
 import type { SiteContent } from "@/content/types";
 import {
   isHttpsUrl,
+  isPhoneNumber,
   isThumbnailPath,
   validateContent,
 } from "@/content/validate";
@@ -47,7 +48,7 @@ function contentWith(overrides: Record<string, unknown>): unknown {
 }
 
 describe("validateContent", () => {
-  it("accepts the dummy content with no warnings", () => {
+  it("accepts the site content with no warnings", () => {
     const { content, warnings } = validateContent(rawContent);
 
     expect(warnings).toEqual([]);
@@ -71,6 +72,7 @@ describe("validateContent", () => {
     expect(content.profile.name).toBe("");
     expect(content.contact).toEqual({
       email: null,
+      phone: null,
       github: null,
       linkedin: null,
       links: [],
@@ -263,6 +265,7 @@ describe("validateContent: contact", () => {
   it("keeps valid contact fields", () => {
     const contact: SiteContent["contact"] = {
       email: "a@example.com",
+      phone: "+1 555 010 0199",
       github: "https://github.com/a",
       linkedin: "https://linkedin.com/in/a",
       links: [{ label: "Blog", url: "https://a.dev" }],
@@ -285,6 +288,17 @@ describe("validateContent: contact", () => {
     ]);
   });
 
+  it("drops an invalid phone number and warns", () => {
+    const { content, warnings } = validateContent(
+      contentWith({ contact: { phone: "call me maybe" } }),
+    );
+
+    expect(content.contact.phone).toBeNull();
+    expect(warnings).toEqual([
+      'contact: "phone" skipped: must be a phone number',
+    ]);
+  });
+
   it("drops a non-https GitHub link and warns", () => {
     const { content, warnings } = validateContent(
       contentWith({ contact: { github: "http://github.com/a" } }),
@@ -301,6 +315,7 @@ describe("validateContent: contact", () => {
 
     expect(content.contact).toEqual({
       email: null,
+      phone: null,
       github: null,
       linkedin: null,
       links: [],
@@ -336,6 +351,24 @@ describe("isHttpsUrl", () => {
 
   it("rejects a relative path", () => {
     expect(isHttpsUrl("/assets/x.png")).toBe(false);
+  });
+});
+
+describe("isPhoneNumber", () => {
+  it.each([
+    ["+1 555 010 0199", true],
+    ["555-010-0199", true],
+    ["+44.20.7946.0000", true],
+    ["0800 123", true],
+    ["12345", false],
+    ["+1234567890123456", false],
+    ["+1  555 0100", false],
+    ["555 0100 ", false],
+    ["tel:+15550100199", false],
+    ["+1 (555) 010 0199", false],
+    ["", false],
+  ])("returns the right answer for %j", (value, expected) => {
+    expect(isPhoneNumber(value)).toBe(expected);
   });
 });
 

@@ -69,6 +69,22 @@ function emailLink(doc: Document, email: string): HTMLAnchorElement {
   return link;
 }
 
+/** A `tel:` link; the href keeps only a leading `+` and the digits. */
+function phoneLink(doc: Document, phone: string): HTMLAnchorElement {
+  const link = doc.createElement("a");
+  link.className = "terminal__link";
+  link.href = `tel:${phone.startsWith("+") ? "+" : ""}${phone.replace(/\D/g, "")}`;
+  link.textContent = phone;
+  return link;
+}
+
+function phoneLine(doc: Document, phone: string | null): Line {
+  const label = TERMINAL_FIELD_LABELS.phone;
+  return phone === null
+    ? terminalNotListed(label)
+    : [`${label}: `, phoneLink(doc, phone)];
+}
+
 function emailLine(doc: Document, email: string | null): Line {
   const label = TERMINAL_FIELD_LABELS.email;
   return email === null
@@ -115,6 +131,8 @@ export function outputFor(
       return helpLines(parsed.topic);
     case "email":
       return [emailLine(doc, contact.email)];
+    case "phone":
+      return [phoneLine(doc, contact.phone)];
     case "github":
       return [urlLine(doc, TERMINAL_FIELD_LABELS.github, contact.github)];
     case "linkedin":
@@ -122,6 +140,7 @@ export function outputFor(
     case "contact":
       return [
         emailLine(doc, contact.email),
+        phoneLine(doc, contact.phone),
         urlLine(doc, TERMINAL_FIELD_LABELS.github, contact.github),
         urlLine(doc, TERMINAL_FIELD_LABELS.linkedin, contact.linkedin),
         ...contact.links.map((link) => urlLine(doc, link.label, link.url)),

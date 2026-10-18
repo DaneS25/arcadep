@@ -17,7 +17,7 @@ test.describe("front: arcade cabinet", () => {
     const canvas = page.locator("canvas.scene");
     const [first, second] = profile.aboutPages;
     if (first === undefined || second === undefined)
-      throw new Error("the dummy profile needs two about pages");
+      throw new Error("the site profile needs two about pages");
 
     await page.keyboard.press("Tab");
     await expect(canvas).toHaveAttribute("data-app-side", "front");

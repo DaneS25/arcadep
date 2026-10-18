@@ -21,6 +21,10 @@ const THUMBNAIL_PREFIX = "/assets/thumbnails/";
 const MAX_SKILL_YEARS = 80;
 // Deliberately loose: something@something.tld with no spaces.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// An optional leading +, then digits with single spaces, dashes or dots between groups.
+const PHONE_PATTERN = /^\+?\d+(?:[ .-]\d+)*$/;
+const MIN_PHONE_DIGITS = 6;
+const MAX_PHONE_DIGITS = 15;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -47,6 +51,13 @@ export function isHttpsUrl(value: string): boolean {
     // An unparseable URL is just invalid content, not an error to surface.
     return false;
   }
+}
+
+/** True for a phone number like `+64 21 123 4567`: 6 to 15 digits, grouped by spaces, dashes or dots. */
+export function isPhoneNumber(value: string): boolean {
+  if (!PHONE_PATTERN.test(value)) return false;
+  const digits = value.replace(/\D/g, "").length;
+  return digits >= MIN_PHONE_DIGITS && digits <= MAX_PHONE_DIGITS;
 }
 
 /** True for a file path directly or nested under `/assets/thumbnails/`, with no `..` segments. */
@@ -251,7 +262,7 @@ function validateContact(raw: unknown, warnings: string[]): Contact {
   if (!isRecord(raw)) warnings.push("contact: not an object");
 
   const optional = (
-    name: "email" | "github" | "linkedin",
+    name: "email" | "phone" | "github" | "linkedin",
     isValid: (value: string) => boolean,
     rule: string,
   ): string | null => {
@@ -286,6 +297,7 @@ function validateContact(raw: unknown, warnings: string[]): Contact {
       (value) => EMAIL_PATTERN.test(value),
       "must be an email address",
     ),
+    phone: optional("phone", isPhoneNumber, "must be a phone number"),
     github: optional("github", isHttpsUrl, "must be an https: URL"),
     linkedin: optional("linkedin", isHttpsUrl, "must be an https: URL"),
     links,

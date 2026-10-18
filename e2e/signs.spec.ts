@@ -15,7 +15,7 @@ test.describe("left: neon skill signs", () => {
     const canvas = page.locator("canvas.scene");
     const [first, second] = skills;
     if (first === undefined || second === undefined)
-      throw new Error("the dummy content needs two skills");
+      throw new Error("the site content needs two skills");
 
     await page.keyboard.press("ArrowLeft");
     await expect(canvas).toHaveAttribute("data-app-side", "left");
@@ -37,7 +37,7 @@ test.describe("left: neon skill signs", () => {
     // Tab reaches the first skill; the arrow keys move to the next one.
     await page.keyboard.press("Tab");
     await expect(
-      panel.getByRole("button", { name: new RegExp(`^${first.name}`) }),
+      panel.locator(`button[data-skill="${first.id}"]`),
     ).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
@@ -45,7 +45,7 @@ test.describe("left: neon skill signs", () => {
     );
     await expect(panel.getByText(second.note)).toBeVisible();
     await expect(
-      panel.getByRole("button", { name: new RegExp(`^${second.name}`) }),
+      panel.locator(`button[data-skill="${second.id}"]`),
     ).toBeFocused();
     // Arrow keys move through the list; the scene stays on the left.
     await expect(canvas).toHaveAttribute("data-app-state", "panel");
@@ -69,9 +69,9 @@ test.describe("left: neon skill signs", () => {
     const [first, second] = skills;
     const last = skills.at(-1);
     if (first === undefined || second === undefined || last === undefined)
-      throw new Error("the dummy content needs two skills");
-    const item = (name: string) =>
-      panel.getByRole("button", { name: new RegExp(`^${name}`) });
+      throw new Error("the site content needs two skills");
+    // By id: skill names may share a prefix or hold regex characters.
+    const item = (id: string) => panel.locator(`button[data-skill="${id}"]`);
 
     await page.keyboard.press("ArrowLeft");
     await expect(canvas).toHaveAttribute("data-camera-side", "left");
@@ -86,29 +86,29 @@ test.describe("left: neon skill signs", () => {
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       second.name,
     );
-    await expect(item(second.name)).toBeFocused();
+    await expect(item(second.id)).toBeFocused();
 
     await close.focus();
     await page.keyboard.press("End");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       last.name,
     );
-    await expect(item(last.name)).toBeFocused();
-    await expect(item(last.name)).toBeInViewport();
+    await expect(item(last.id)).toBeFocused();
+    await expect(item(last.id)).toBeInViewport();
 
     await close.focus();
     await page.keyboard.press("Home");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       first.name,
     );
-    await expect(item(first.name)).toBeFocused();
+    await expect(item(first.id)).toBeFocused();
     await page.keyboard.press("ArrowUp");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
       first.name,
     );
     // Tab order is unchanged: the next skill follows.
     await page.keyboard.press("Tab");
-    await expect(item(second.name)).toBeFocused();
+    await expect(item(second.id)).toBeFocused();
 
     // The arrow keys stayed in the panel: the scene is still on the left close-up.
     await expect(canvas).toHaveAttribute("data-app-state", "panel");

@@ -46,6 +46,12 @@ test.describe("right: door terminal", () => {
         log.getByRole("link", { name: contact.email }),
       ).toHaveAttribute("href", `mailto:${contact.email}`);
 
+    await panel.getByRole("button", { name: "phone" }).click();
+    if (contact.phone !== null)
+      await expect(
+        log.getByRole("link", { name: contact.phone }),
+      ).toHaveAttribute("href", /^tel:\+?\d+$/);
+
     await panel.getByRole("button", { name: "github" }).click();
     if (contact.github !== null) {
       const link = log.getByRole("link", { name: /opens in a new tab/ }).last();
